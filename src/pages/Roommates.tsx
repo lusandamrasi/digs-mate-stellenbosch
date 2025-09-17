@@ -2,7 +2,15 @@ import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Calendar, Users, MessageCircle, Filter } from "lucide-react";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { MapPin, Calendar, Users, MessageCircle, Filter, Heart, Plus } from "lucide-react";
+import { useState } from "react";
 
 // Mock roommate posts
 const roommatePosts = [
@@ -69,6 +77,25 @@ const roommatePosts = [
 ];
 
 const Roommates = () => {
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [savedPosts, setSavedPosts] = useState<string[]>([]);
+
+  const handleSavePost = (postId: string) => {
+    setSavedPosts(prev => 
+      prev.includes(postId) 
+        ? prev.filter(id => id !== postId)
+        : [...prev, postId]
+    );
+  };
+
+  const filteredPosts = roommatePosts.filter(post => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'looking-for-roommates') return post.type === 'looking-for-roommates';
+    if (activeFilter === 'lease-takeover') return post.type === 'lease-takeover';
+    if (activeFilter === 'looking-for-place') return post.type === 'looking-for-place';
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
@@ -90,23 +117,66 @@ const Roommates = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between">
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm">
+              <Button 
+                variant={activeFilter === 'all' ? 'default' : 'ghost'} 
+                size="sm"
+                onClick={() => setActiveFilter('all')}
+              >
                 All Posts
               </Button>
-              <Button variant="ghost" size="sm">
+              <Button 
+                variant={activeFilter === 'looking-for-roommates' ? 'default' : 'ghost'} 
+                size="sm"
+                onClick={() => setActiveFilter('looking-for-roommates')}
+              >
                 Looking for Roommates
               </Button>
-              <Button variant="ghost" size="sm">
+              <Button 
+                variant={activeFilter === 'lease-takeover' ? 'default' : 'ghost'} 
+                size="sm"
+                onClick={() => setActiveFilter('lease-takeover')}
+              >
                 Lease Takeovers
               </Button>
-              <Button variant="ghost" size="sm">
+              <Button 
+                variant={activeFilter === 'looking-for-place' ? 'default' : 'ghost'} 
+                size="sm"
+                onClick={() => setActiveFilter('looking-for-place')}
+              >
                 Looking for Place
               </Button>
             </div>
-            <Button variant="outline" size="sm">
-              <Filter size={16} className="mr-2" />
-              Filters
-            </Button>
+            
+            {/* Advanced Filters Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter size={16} className="mr-2" />
+                  Filters
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem>
+                  <Users className="mr-2 h-4 w-4" />
+                  <span>Roommate Count</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <MapPin className="mr-2 h-4 w-4" />
+                  <span>Location</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Calendar className="mr-2 h-4 w-4" />
+                  <span>Available Date</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <span>Budget Range</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Preferences</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -114,7 +184,7 @@ const Roommates = () => {
       {/* Posts */}
       <div className="container mx-auto px-4 py-6">
         <div className="space-y-6">
-          {roommatePosts.map((post) => (
+          {filteredPosts.map((post) => (
             <Card key={post.id} className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex flex-col md:flex-row">
@@ -142,8 +212,22 @@ const Roommates = () => {
                         </Badge>
                         <h3 className="text-xl font-semibold text-foreground">{post.title}</h3>
                       </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-primary">{post.budget}</div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleSavePost(post.id)}
+                          className="text-muted-foreground hover:text-red-500"
+                        >
+                          <Heart 
+                            className={`w-4 h-4 ${
+                              savedPosts.includes(post.id) ? 'fill-red-500 text-red-500' : ''
+                            }`} 
+                          />
+                        </Button>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-primary">{post.budget}</div>
+                        </div>
                       </div>
                     </div>
 

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Search, Users, Plus, MessageCircle, User } from "lucide-react";
+import { Home, Search, Users, Plus, MessageCircle, Heart } from "lucide-react";
 
 const TabNavigation = () => {
   const location = useLocation();
@@ -7,10 +7,17 @@ const TabNavigation = () => {
   const tabs = [
     { path: "/", label: "Home", icon: Home },
     { path: "/listings", label: "Listings", icon: Search },
-    { path: "/roommates", label: "Roommates", icon: Users },
+    { 
+      path: "/roommates", 
+      label: "Roommates", 
+      icon: Users,
+      subItems: [
+        { label: "Add Resource", path: "/roommates/add-resource", icon: Plus }
+      ]
+    },
     { path: "/post", label: "Post", icon: Plus },
+    { path: "/saved", label: "Saved", icon: Heart },
     { path: "/messages", label: "Messages", icon: MessageCircle },
-    { path: "/profile", label: "Profile", icon: User },
   ];
 
   return (

@@ -114,7 +114,7 @@ const Dashboard = () => {
       <section className="py-8 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-foreground">Recent Roommate Posts</h2>
+            <h2 className="text-2xl font-bold text-foreground">Recent Roommate Posts:</h2>
             <Button variant="ghost" size="sm" className="text-primary">
               View All <ArrowRight size={16} className="ml-1" />
             </Button>
@@ -123,7 +123,7 @@ const Dashboard = () => {
             {featuredRoommatePosts.map((post) => (
               <div key={post.id} className="bg-card p-4 rounded-lg shadow-soft border border-border">
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-semibold text-foreground">{post.title}</h3>
+                  <h3 className="font-semibold font-bold text-foreground">{post.title}</h3>
                   <span className="text-lg font-bold text-primary">{post.budget}</span>
                 </div>
                 <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">

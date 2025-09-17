@@ -18,7 +18,7 @@ const CreatePost = () => {
       <div className="bg-gradient-primary py-8">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold text-primary-foreground mb-2">
-            Create Listing
+            Create Post
           </h1>
           <p className="text-primary-foreground/90">
             Post your property or find roommates
@@ -247,6 +247,17 @@ const CreatePost = () => {
                   />
                 </div>
 
+                {/* Photos */}
+                <div>
+                  <Label>Photos of your place</Label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                    <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-2">Click to upload or drag and drop</p>
+                    <p className="text-sm text-muted-foreground">PNG, JPG up to 10MB (max 10 photos)</p>
+                    <Button variant="outline" className="mt-4">Choose Files</Button>
+                  </div>
+                </div>
+
                 <Button size="lg" className="w-full bg-gradient-accent hover:opacity-90 transition-smooth">
                   Post Roommate Request
                 </Button>
@@ -311,6 +322,17 @@ const CreatePost = () => {
                     placeholder="Describe the place, why you're leaving, what's included, and any important details..."
                     rows={4}
                   />
+                </div>
+
+                {/* Photos */}
+                <div>
+                  <Label>Photos of your place</Label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                    <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-2">Click to upload or drag and drop</p>
+                    <p className="text-sm text-muted-foreground">PNG, JPG up to 10MB (max 10 photos)</p>
+                    <Button variant="outline" className="mt-4">Choose Files</Button>
+                  </div>
                 </div>
 
                 <Button size="lg" className="w-full bg-gradient-accent hover:opacity-90 transition-smooth">

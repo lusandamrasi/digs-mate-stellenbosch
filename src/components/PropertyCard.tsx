@@ -29,11 +29,18 @@ interface PropertyCardProps {
     availableFrom: string;
     description: string;
   };
+  onSave?: (propertyId: string) => void;
+  isSaved?: boolean;
 }
 
-const PropertyCard = ({ property }: PropertyCardProps) => {
-  const [isLiked, setIsLiked] = useState(false);
+const PropertyCard = ({ property, onSave, isSaved = false }: PropertyCardProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const handleSave = () => {
+    if (onSave) {
+      onSave(property.id);
+    }
+  };
 
   return (
     <Card className="group hover:shadow-medium transition-all duration-300 transform hover:-translate-y-1 overflow-hidden">
@@ -77,11 +84,11 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
           variant="ghost"
           size="icon"
           className="absolute top-3 right-3 bg-background/80 hover:bg-background"
-          onClick={() => setIsLiked(!isLiked)}
+          onClick={handleSave}
         >
           <Heart 
             className={`w-4 h-4 transition-colors ${
-              isLiked ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
+              isSaved ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
             }`} 
           />
         </Button>

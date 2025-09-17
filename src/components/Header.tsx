@@ -1,18 +1,36 @@
 import { useState } from "react";
+import { Home, HomeIcon, Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Menu, Plus, Heart, User } from "lucide-react";
+
+
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Menu, User, LogOut, Sun, Moon, Monitor } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useTheme } from "@/providers/ThemeProvider";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
+
+  const handleLogout = () => {
+    // TODO: Implement logout functionality
+    console.log('Logout clicked');
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-4">
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm">FM</span>
             </div>
@@ -22,30 +40,52 @@ const Header = () => {
             </Badge>
           </div>
 
-          {/* Search bar - hidden on mobile */}
-          <div className="hidden md:flex flex-1 max-w-md mx-8">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="Search for accommodation..."
-                className="pl-10 bg-secondary/50 border-none"
-              />
-            </div>
-          </div>
-
           {/* Action buttons */}
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon" className="hidden sm:flex">
-              <Heart className="w-5 h-5" />
-            </Button>
-            <Button className="bg-gradient-accent hover:opacity-90 transition-smooth">
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Post Listing</span>
-              <span className="sm:hidden">Post</span>
-            </Button>
-            <Button variant="outline" size="icon">
-              <User className="w-4 h-4" />
-            </Button>
+            {/* Theme Toggle */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                  <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                  <span className="sr-only">Toggle theme</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setTheme('light')}>
+                  <Sun className="mr-2 h-4 w-4" />
+                  <span>Light</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('dark')}>
+                  <Moon className="mr-2 h-4 w-4" />
+                  <span>Dark</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('system')}>
+                  <Monitor className="mr-2 h-4 w-4" />
+                  <span>System</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Profile Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <User className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Logout</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             {/* Mobile menu button */}
             <Button
@@ -56,17 +96,6 @@ const Header = () => {
             >
               <Menu className="w-5 h-5" />
             </Button>
-          </div>
-        </div>
-
-        {/* Mobile search bar */}
-        <div className="md:hidden mt-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search for accommodation..."
-              className="pl-10 bg-secondary/50 border-none"
-            />
           </div>
         </div>
       </div>

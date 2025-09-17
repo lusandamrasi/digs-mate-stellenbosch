@@ -1,8 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, MapPin, Users, Shield } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import heroImage from "@/assets/hero-image.jpg";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+
+  const handleStartSearching = () => {
+    navigate('/listings');
+  };
+
   return (
     <section className="relative overflow-hidden bg-gradient-subtle">
       <div className="container mx-auto px-4 py-16 lg:py-24">
@@ -54,12 +61,13 @@ const HeroSection = () => {
 
             {/* CTA buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="bg-gradient-primary hover:opacity-90 transition-smooth text-lg px-8">
+              <Button 
+                size="lg" 
+                className="bg-gradient-primary hover:opacity-90 transition-smooth text-lg px-8"
+                onClick={handleStartSearching}
+              >
                 Start Searching
                 <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8">
-                Post Your Listing
               </Button>
             </div>
           </div>
