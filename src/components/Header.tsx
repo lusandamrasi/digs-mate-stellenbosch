@@ -1,9 +1,6 @@
 import { useState } from "react";
-import { Home, HomeIcon, Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -14,15 +11,21 @@ import {
 import { Menu, User, LogOut, Sun, Moon, Monitor } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/providers/ThemeProvider";
+import { useAuth } from "@/providers/BetterAuthProvider";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { user, signOut } = useAuth();
 
-  const handleLogout = () => {
-    // TODO: Implement logout functionality
-    console.log('Logout clicked');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/auth');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   return (
@@ -75,6 +78,10 @@ const Header = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                  {user?.full_name || user?.name || user?.email}
+                </div>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate('/profile')}>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
