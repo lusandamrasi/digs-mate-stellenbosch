@@ -28,9 +28,34 @@ type SavedListingInsert = Database['public']['Tables']['saved_listings']['Insert
 export const userApi = {
   async getProfile(userId: string): Promise<User | null> {
     const { data, error } = await supabase
-      .from('users')
+      .from('user_profiles')
       .select('*')
-      .eq('id', userId)
+      .eq('user_id', userId)
+      .single()
+    
+    if (error) {
+      // If no profile found, return null instead of throwing
+      if (error.code === 'PGRST116') {
+        return null
+      }
+      throw error
+    }
+    return data
+  },
+
+  async createProfile(userId: string, userData: Partial<User>): Promise<User> {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .insert({
+        user_id: userId,
+        email: userData.email || '',
+        full_name: userData.full_name || '',
+        bio: userData.bio || null,
+        profile_photo_url: userData.profile_photo_url || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
       .single()
     
     if (error) throw error
@@ -39,9 +64,12 @@ export const userApi = {
 
   async updateProfile(userId: string, updates: UserUpdate): Promise<User> {
     const { data, error } = await supabase
-      .from('users')
-      .update(updates)
-      .eq('id', userId)
+      .from('user_profiles')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
       .select()
       .single()
     

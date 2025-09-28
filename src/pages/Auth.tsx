@@ -52,6 +52,7 @@ export default function Auth() {
     const userType = formData.get('userType') as 'student' | 'landlord'
 
     try {
+      console.log('Starting sign up process...')
       const { data, error } = await signUp(email, password, {
         name: fullName,
         user_type: userType,
@@ -59,11 +60,17 @@ export default function Auth() {
       })
       
       if (error) {
+        console.error('Sign up error:', error)
         setError(error.message || 'Sign up failed')
       } else {
-        navigate('/dashboard')
+        console.log('Sign up successful, navigating to dashboard...')
+        // Add a small delay to ensure the auth state is updated
+        setTimeout(() => {
+          navigate('/dashboard')
+        }, 100)
       }
     } catch (err) {
+      console.error('Sign up exception:', err)
       setError('An unexpected error occurred')
     } finally {
       setIsLoading(false)

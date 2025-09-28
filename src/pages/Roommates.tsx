@@ -11,6 +11,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MapPin, Calendar, Users, MessageCircle, Filter, Heart, Plus } from "lucide-react";
 import { useState } from "react";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Mock roommate posts
 const roommatePosts = [
@@ -59,26 +68,21 @@ const roommatePosts = [
     timePosted: "1 day ago",
     images: ["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"]
   },
-  {
-    id: "4",
-    type: "looking-for-place",
-    title: "Looking for accommodation for 2025",
-    budget: "R3,000 max",
-    location: "Stellenbosch Central",
-    availableFrom: "1 January 2025",
-    currentRoommates: 0,
-    totalRoommates: 1,
-    description: "Final year law student looking for a quiet place to stay. Preferably close to campus with good WiFi for research.",
-    preferences: ["Quiet", "Good WiFi", "Close to campus"],
-    postedBy: "David R.",
-    timePosted: "2 days ago",
-    images: []
-  }
 ];
 
 const Roommates = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
+  
+  // Advanced filter states
+  const [roommateCountFilter, setRoommateCountFilter] = useState<string>('all');
+  const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [budgetRange, setBudgetRange] = useState<number[]>([0, 15000]);
+  const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
+  
+  // Available options for filters
+  const locations = ['All', 'Dalsig', 'Die Boord', 'Universiteitsoord', 'Stellenbosch Central', 'Other'];
+  const preferences = ['Non-smoker', 'Student', 'Quiet hours', 'Female only', 'Study-focused', 'Single occupancy', 'Furnished', 'Close to campus', 'Good WiFi', 'Quiet'];
 
   const handleSavePost = (postId: string) => {
     setSavedPosts(prev => 
@@ -88,11 +92,49 @@ const Roommates = () => {
     );
   };
 
+  const handlePreferenceToggle = (preference: string) => {
+    setSelectedPreferences(prev => 
+      prev.includes(preference)
+        ? prev.filter(p => p !== preference)
+        : [...prev, preference]
+    );
+  };
+
+  const clearAllFilters = () => {
+    setRoommateCountFilter('all');
+    setLocationFilter('all');
+    setBudgetRange([0, 15000]);
+    setSelectedPreferences([]);
+  };
+
   const filteredPosts = roommatePosts.filter(post => {
-    if (activeFilter === 'all') return true;
-    if (activeFilter === 'looking-for-roommates') return post.type === 'looking-for-roommates';
-    if (activeFilter === 'lease-takeover') return post.type === 'lease-takeover';
-    if (activeFilter === 'looking-for-place') return post.type === 'looking-for-place';
+    // Basic type filter
+    if (activeFilter !== 'all') {
+      if (activeFilter === 'looking-for-roommates' && post.type !== 'looking-for-roommates') return false;
+      if (activeFilter === 'lease-takeover' && post.type !== 'lease-takeover') return false;
+    }
+    
+    // Roommate count filter
+    if (roommateCountFilter !== 'all') {
+      const count = parseInt(roommateCountFilter);
+      if (post.totalRoommates !== count) return false;
+    }
+    
+    // Location filter
+    if (locationFilter !== 'all' && post.location !== locationFilter) return false;
+    
+    // Budget range filter
+    const postBudget = parseInt(post.budget.replace(/[^\d]/g, ''));
+    if (postBudget < budgetRange[0] || postBudget > budgetRange[1]) return false;
+    
+    // Preferences filter
+    if (selectedPreferences.length > 0) {
+      const hasMatchingPreference = selectedPreferences.some(pref => 
+        post.preferences.includes(pref)
+      );
+      if (!hasMatchingPreference) return false;
+    }
+    
     return true;
   });
 
@@ -138,13 +180,6 @@ const Roommates = () => {
               >
                 Lease Takeovers
               </Button>
-              <Button 
-                variant={activeFilter === 'looking-for-place' ? 'default' : 'ghost'} 
-                size="sm"
-                onClick={() => setActiveFilter('looking-for-place')}
-              >
-                Looking for Place
-              </Button>
             </div>
             
             {/* Advanced Filters Dropdown */}
@@ -153,28 +188,101 @@ const Roommates = () => {
                 <Button variant="outline" size="sm">
                   <Filter size={16} className="mr-2" />
                   Filters
+                  {(roommateCountFilter !== 'all' || locationFilter !== 'all' || selectedPreferences.length > 0 || budgetRange[0] > 0 || budgetRange[1] < 15000) && (
+                    <Badge variant="secondary" className="ml-2 h-4 w-4 p-0 flex items-center justify-center text-xs">
+                      !
+                    </Badge>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem>
-                  <Users className="mr-2 h-4 w-4" />
-                  <span>Roommate Count</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <MapPin className="mr-2 h-4 w-4" />
-                  <span>Location</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Calendar className="mr-2 h-4 w-4" />
-                  <span>Available Date</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <span>Budget Range</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <span>Preferences</span>
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-80 p-4">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-semibold">Advanced Filters</h4>
+                    <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-xs">
+                      Clear All
+                    </Button>
+                  </div>
+                  
+                  {/* Roommate Count Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Roommate Count
+                    </label>
+                    <Select value={roommateCountFilter} onValueChange={setRoommateCountFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any count" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Any count</SelectItem>
+                        <SelectItem value="1">1 roommate</SelectItem>
+                        <SelectItem value="2">2 roommates</SelectItem>
+                        <SelectItem value="3">3 roommates</SelectItem>
+                        <SelectItem value="4">4+ roommates</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Location Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Location
+                    </label>
+                    <Select value={locationFilter} onValueChange={setLocationFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any location" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {locations.map((location) => (
+                          <SelectItem key={location} value={location.toLowerCase() === 'all' ? 'all' : location}>
+                            {location}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Budget Range Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Budget Range (R{budgetRange[0]} - R{budgetRange[1]})</label>
+                    <Slider
+                      value={budgetRange}
+                      onValueChange={setBudgetRange}
+                      max={15000}
+                      min={0}
+                      step={100}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>R0</span>
+                      <span>R15,000+</span>
+                    </div>
+                  </div>
+
+                  {/* Preferences Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Preferences</label>
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                      {preferences.map((preference) => (
+                        <div key={preference} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={preference}
+                            checked={selectedPreferences.includes(preference)}
+                            onCheckedChange={() => handlePreferenceToggle(preference)}
+                          />
+                          <label
+                            htmlFor={preference}
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            {preference}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -183,8 +291,34 @@ const Roommates = () => {
 
       {/* Posts */}
       <div className="container mx-auto px-4 py-6">
+        {/* Results Count */}
+        <div className="mb-4 flex justify-between items-center">
+          <p className="text-sm text-muted-foreground">
+            Showing {filteredPosts.length} of {roommatePosts.length} posts
+          </p>
+          {(roommateCountFilter !== 'all' || locationFilter !== 'all' || selectedPreferences.length > 0 || budgetRange[0] > 0 || budgetRange[1] < 15000) && (
+            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-xs">
+              Clear Filters
+            </Button>
+          )}
+        </div>
+        
         <div className="space-y-6">
-          {filteredPosts.map((post) => (
+          {filteredPosts.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-4">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-semibold mb-2">No posts found</h3>
+                <p className="text-sm">
+                  Try adjusting your filters or check back later for new posts.
+                </p>
+              </div>
+              <Button variant="outline" onClick={clearAllFilters}>
+                Clear All Filters
+              </Button>
+            </div>
+          ) : (
+            filteredPosts.map((post) => (
             <Card key={post.id} className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex flex-col md:flex-row">
@@ -208,7 +342,7 @@ const Roommates = () => {
                           className="mb-2"
                         >
                           {post.type === 'looking-for-roommates' ? 'Looking for Roommates' :
-                           post.type === 'lease-takeover' ? 'Lease Takeover' : 'Looking for Place'}
+                           post.type === 'lease-takeover' ? 'Lease Takeover' : 'Other'}
                         </Badge>
                         <h3 className="text-xl font-semibold text-foreground">{post.title}</h3>
                       </div>
@@ -269,7 +403,8 @@ const Roommates = () => {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            ))
+          )}
         </div>
 
         {/* Load More */}

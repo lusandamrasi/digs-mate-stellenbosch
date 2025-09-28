@@ -91,7 +91,7 @@ const HeroSection = () => {
                       <p className="text-xs text-muted-foreground">Active Listings</p>
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-accent">1.2k+</p>
+                      <p className="text-2xl text-green-600 font-bold text-accent">1.2k+</p>
                       <p className="text-xs text-muted-foreground">Happy Students</p>
                     </div>
                     <div>

@@ -2,7 +2,9 @@ import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import PropertyCard from "@/components/PropertyCard";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Star, MapPin } from "lucide-react";
+import { ArrowRight, Star, MapPin, RefreshCw } from "lucide-react";
+import { useAuth } from "@/providers/BetterAuthProvider";
+import { useState } from "react";
 
 // Mock featured properties
 const featuredProperties = [
@@ -65,6 +67,8 @@ const featuredRoommatePosts = [
 ];
 
 const Dashboard = () => {
+  const { user } = useAuth();
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />

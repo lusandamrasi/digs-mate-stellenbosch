@@ -14,11 +14,87 @@ import {
   Filter
 } from "lucide-react";
 
-const SearchFilters = () => {
+interface SearchFiltersProps {
+  onFiltersChange: (filters: {
+    searchTerm: string;
+    budget: number[];
+    selectedType: string;
+    selectedRooms: string;
+  }) => void;
+}
+
+const SearchFilters = ({ onFiltersChange }: SearchFiltersProps) => {
+  const [searchTerm, setSearchTerm] = useState("");
   const [budget, setBudget] = useState([2000]);
   const [selectedType, setSelectedType] = useState<string>("");
   const [selectedRooms, setSelectedRooms] = useState<string>("");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Update filters whenever any filter changes
+  const updateFilters = () => {
+    onFiltersChange({
+      searchTerm,
+      budget,
+      selectedType,
+      selectedRooms
+    });
+  };
+
+  // Handle search input
+  const handleSearch = () => {
+    updateFilters();
+  };
+
+  // Handle budget change
+  const handleBudgetChange = (newBudget: number[]) => {
+    setBudget(newBudget);
+    setTimeout(() => {
+      onFiltersChange({
+        searchTerm,
+        budget: newBudget,
+        selectedType,
+        selectedRooms
+      });
+    }, 100);
+  };
+
+  // Handle type selection
+  const handleTypeChange = (type: string) => {
+    const newType = selectedType === type ? "" : type;
+    setSelectedType(newType);
+    onFiltersChange({
+      searchTerm,
+      budget,
+      selectedType: newType,
+      selectedRooms
+    });
+  };
+
+  // Handle rooms selection
+  const handleRoomsChange = (rooms: string) => {
+    const newRooms = selectedRooms === rooms ? "" : rooms;
+    setSelectedRooms(newRooms);
+    onFiltersChange({
+      searchTerm,
+      budget,
+      selectedType,
+      selectedRooms: newRooms
+    });
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchTerm("");
+    setBudget([2000]);
+    setSelectedType("");
+    setSelectedRooms("");
+    onFiltersChange({
+      searchTerm: "",
+      budget: [2000],
+      selectedType: "",
+      selectedRooms: ""
+    });
+  };
 
   const propertyTypes = [
     { id: "digs", label: "Digs", icon: Home },
@@ -39,6 +115,9 @@ const SearchFilters = () => {
             <Input
               placeholder="Enter area, university, or landmark..."
               className="pl-12 h-12 bg-background border-border"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
             />
           </div>
           
@@ -51,7 +130,7 @@ const SearchFilters = () => {
               <Filter className="w-4 h-4 mr-2" />
               Filters
             </Button>
-            <Button className="h-12 px-8 bg-gradient-primary hover:opacity-90">
+            <Button className="h-12 px-8 bg-gradient-primary hover:opacity-90" onClick={handleSearch}>
               Search
             </Button>
           </div>
@@ -70,8 +149,8 @@ const SearchFilters = () => {
                 <div className="space-y-3">
                   <Slider
                     value={budget}
-                    onValueChange={setBudget}
-                    max={10000}
+                    onValueChange={handleBudgetChange}
+                    max={15000}
                     min={500}
                     step={100}
                     className="w-full"
@@ -79,7 +158,7 @@ const SearchFilters = () => {
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>R500</span>
                     <span className="font-medium text-primary">R{budget[0]}</span>
-                    <span>R10,000+</span>
+                    <span>R15,000+</span>
                   </div>
                 </div>
               </div>
@@ -98,7 +177,7 @@ const SearchFilters = () => {
                         key={type.id}
                         variant={selectedType === type.id ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setSelectedType(selectedType === type.id ? "" : type.id)}
+                        onClick={() => handleTypeChange(type.id)}
                         className="justify-start"
                       >
                         <Icon className="w-4 h-4 mr-2" />
@@ -121,7 +200,7 @@ const SearchFilters = () => {
                       key={room}
                       variant={selectedRooms === room ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setSelectedRooms(selectedRooms === room ? "" : room)}
+                      onClick={() => handleRoomsChange(room)}
                       className="flex-1"
                     >
                       {room}
@@ -149,15 +228,11 @@ const SearchFilters = () => {
                     {selectedRooms} Bedrooms
                   </Badge>
                 )}
-                {(budget[0] > 500 || selectedType || selectedRooms) && (
+                {(budget[0] > 500 || selectedType || selectedRooms || searchTerm) && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      setBudget([2000]);
-                      setSelectedType("");
-                      setSelectedRooms("");
-                    }}
+                    onClick={clearAllFilters}
                     className="text-muted-foreground hover:text-foreground"
                   >
                     Clear all

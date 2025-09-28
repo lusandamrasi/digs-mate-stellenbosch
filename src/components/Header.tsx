@@ -8,23 +8,25 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Menu, User, LogOut, Sun, Moon, Monitor } from "lucide-react";
+import { Menu, User, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "@/providers/ThemeProvider";
 import { useAuth } from "@/providers/BetterAuthProvider";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
   const { user, signOut } = useAuth();
 
   const handleLogout = async () => {
     try {
+      console.log('Logging out user...');
       await signOut();
+      console.log('User logged out, navigating to /auth');
       navigate('/auth');
     } catch (error) {
       console.error('Logout failed:', error);
+      // Still navigate to auth page even if logout fails
+      navigate('/auth');
     }
   };
 
@@ -45,31 +47,6 @@ const Header = () => {
 
           {/* Action buttons */}
           <div className="flex items-center space-x-2">
-            {/* Theme Toggle */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                  <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                  <span className="sr-only">Toggle theme</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme('light')}>
-                  <Sun className="mr-2 h-4 w-4" />
-                  <span>Light</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('dark')}>
-                  <Moon className="mr-2 h-4 w-4" />
-                  <span>Dark</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('system')}>
-                  <Monitor className="mr-2 h-4 w-4" />
-                  <span>System</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             {/* Profile Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

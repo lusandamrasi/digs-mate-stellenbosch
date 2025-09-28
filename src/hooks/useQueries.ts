@@ -7,7 +7,7 @@ import {
   messagesApi, 
   savedListingsApi,
   userApi 
-} from './api'
+} from '../lib/api'
 
 // Query Keys
 export const queryKeys = {
@@ -294,6 +294,20 @@ export function useUserProfile(userId: string) {
   })
 }
 
+export function useCreateUserProfile() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ userId, userData }: { 
+      userId: string
+      userData: Parameters<typeof userApi.createProfile>[1] 
+    }) => userApi.createProfile(userId, userData),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.userProfile(data.user_id), data)
+    },
+  })
+}
+
 export function useUpdateUserProfile() {
   const queryClient = useQueryClient()
   
@@ -303,7 +317,7 @@ export function useUpdateUserProfile() {
       updates: Parameters<typeof userApi.updateProfile>[1] 
     }) => userApi.updateProfile(userId, updates),
     onSuccess: (data) => {
-      queryClient.setQueryData(queryKeys.userProfile(data.id), data)
+      queryClient.setQueryData(queryKeys.userProfile(data.user_id), data)
     },
   })
 }

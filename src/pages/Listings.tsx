@@ -1,8 +1,25 @@
+import { useState } from "react";
 import Header from "@/components/Header";
 import SearchFilters from "@/components/SearchFilters";
 import PropertyGrid from "@/components/PropertyGrid";
 
 const Listings = () => {
+  const [filters, setFilters] = useState({
+    searchTerm: "",
+    budget: [2000],
+    selectedType: "",
+    selectedRooms: ""
+  });
+
+  const handleFiltersChange = (newFilters: {
+    searchTerm: string;
+    budget: number[];
+    selectedType: string;
+    selectedRooms: string;
+  }) => {
+    setFilters(newFilters);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
@@ -16,8 +33,8 @@ const Listings = () => {
           </p>
         </div>
       </div>
-      <SearchFilters />
-      <PropertyGrid />
+      <SearchFilters onFiltersChange={handleFiltersChange} />
+      <PropertyGrid filters={filters} />
     </div>
   );
 };

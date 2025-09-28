@@ -1,4 +1,6 @@
 import PropertyCard from "./PropertyCard";
+import { useState, useEffect } from "react";
+import { Home } from "lucide-react";
 
 // Mock data for demonstration
 const mockProperties = [
@@ -109,7 +111,57 @@ const mockProperties = [
   }
 ];
 
-const PropertyGrid = () => {
+interface PropertyGridProps {
+  filters?: {
+    searchTerm: string;
+    budget: number[];
+    selectedType: string;
+    selectedRooms: string;
+  };
+}
+
+const PropertyGrid = ({ filters }: PropertyGridProps) => {
+  const [filteredProperties, setFilteredProperties] = useState(mockProperties);
+
+  useEffect(() => {
+    if (!filters) {
+      setFilteredProperties(mockProperties);
+      return;
+    }
+
+    const filtered = mockProperties.filter(property => {
+      // Search term filter
+      if (filters.searchTerm) {
+        const searchLower = filters.searchTerm.toLowerCase();
+        const matchesSearch = 
+          property.title.toLowerCase().includes(searchLower) ||
+          property.location.toLowerCase().includes(searchLower) ||
+          property.description.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+
+      // Budget filter
+      if (filters.budget && filters.budget[0] > 500) {
+        if (property.price > filters.budget[0]) return false;
+      }
+
+      // Type filter
+      if (filters.selectedType) {
+        if (property.type !== filters.selectedType) return false;
+      }
+
+      // Rooms filter
+      if (filters.selectedRooms) {
+        const requiredRooms = filters.selectedRooms === "4+" ? 4 : parseInt(filters.selectedRooms);
+        if (property.bedrooms !== requiredRooms) return false;
+      }
+
+      return true;
+    });
+
+    setFilteredProperties(filtered);
+  }, [filters]);
+
   return (
     <section className="py-8">
       <div className="container mx-auto px-4">
@@ -119,7 +171,7 @@ const PropertyGrid = () => {
               Available Properties
             </h2>
             <p className="text-muted-foreground">
-              {mockProperties.length} properties found in Stellenbosch
+              {filteredProperties.length} properties found in Stellenbosch
             </p>
           </div>
           
@@ -136,9 +188,21 @@ const PropertyGrid = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mockProperties.map((property) => (
-            <PropertyCard key={property.id} property={property} />
-          ))}
+          {filteredProperties.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <div className="text-muted-foreground mb-4">
+                <Home className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-semibold mb-2">No properties found</h3>
+                <p className="text-sm">
+                  Try adjusting your search criteria or check back later for new listings.
+                </p>
+              </div>
+            </div>
+          ) : (
+            filteredProperties.map((property) => (
+              <PropertyCard key={property.id} property={property} />
+            ))
+          )}
         </div>
 
         {/* Load more */}

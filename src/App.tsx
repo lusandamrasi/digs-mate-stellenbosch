@@ -1,9 +1,9 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryProvider } from "./providers/QueryProvider";
-import { BetterAuthProvider } from "./providers/BetterAuthProvider";
+import { BetterAuthProvider as AuthProvider, useAuth } from "./providers/BetterAuthProvider";
 import { ThemeProvider } from "./providers/ThemeProvider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
@@ -13,13 +13,31 @@ import CreatePost from "./pages/CreatePost";
 import SavedListings from "./pages/SavedListings";
 import Messages from "./pages/Messages";
 import Profile from "./pages/Profile";
-import Auth from "./pages/Auth";
+import SimpleAuth from "./pages/SimpleAuth";
 import NotFound from "./pages/NotFound";
 import TabNavigation from "./components/TabNavigation";
 
+// Component to handle root route logic
+const RootRoute = () => {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return user ? <Navigate to="/dashboard" replace /> : <Navigate to="/auth" replace />;
+};
+
 const App = () => (
-  <ThemeProvider defaultTheme="dark" storageKey="flatmate-ui-theme">
-    <BetterAuthProvider>
+  <ThemeProvider>
+    <AuthProvider>
       <QueryProvider>
         <TooltipProvider>
           <Toaster />
@@ -27,8 +45,8 @@ const App = () => (
           <BrowserRouter>
             <div className="min-h-screen bg-background text-foreground">
               <Routes>
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/" element={<RootRoute />} />
+                <Route path="/auth" element={<SimpleAuth />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/listings" element={<ProtectedRoute><Listings /></ProtectedRoute>} />
                 <Route path="/roommates" element={<ProtectedRoute><Roommates /></ProtectedRoute>} />
@@ -44,7 +62,7 @@ const App = () => (
           </BrowserRouter>
         </TooltipProvider>
       </QueryProvider>
-    </BetterAuthProvider>
+    </AuthProvider>
   </ThemeProvider>
 );
 

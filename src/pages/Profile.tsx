@@ -9,6 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Edit2, Home, Users, Settings, Bell, Shield, LogOut, MapPin, Calendar } from "lucide-react";
+import { useAuth } from "@/providers/BetterAuthProvider";
+import { updateUserProfile } from "@/lib/supabase-simple";
+import { useUserProfile, useUpdateUserProfile, useCreateUserProfile } from "@/hooks/useQueries";
+import { useState, useEffect } from "react";
 
 // Mock user data
 const userData = {
@@ -47,6 +51,83 @@ const userListings = [
 ];
 
 const Profile = () => {
+  const { user } = useAuth();
+  const { data: profile, isLoading: profileLoading, refetch: refreshProfile } = useUserProfile(user?.id || '');
+  const updateProfileMutation = useUpdateUserProfile();
+  const createProfileMutation = useCreateUserProfile();
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    full_name: '',
+    bio: ''
+  });
+
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        full_name: profile.full_name || profile.name || '',
+        bio: profile.bio || ''
+      });
+    } else if (user) {
+      // Fallback to user data from auth
+      setFormData({
+        full_name: user.user_metadata?.full_name || user.email || '',
+        bio: user.user_metadata?.bio || ''
+      });
+    }
+  }, [profile, user]);
+
+  const handleSave = async () => {
+    if (!user) return;
+    
+    try {
+      if (profile) {
+        // Update existing profile
+        await updateProfileMutation.mutateAsync({
+          userId: user.id,
+          updates: formData
+        });
+      } else {
+        // Create new profile
+        await createProfileMutation.mutateAsync({
+          userId: user.id,
+          userData: {
+            email: user.email,
+            full_name: formData.full_name,
+            bio: formData.bio
+          }
+        });
+      }
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <Header />
+        <div className="container mx-auto px-4 py-6">
+          <div className="text-center">
+            <div className="mb-4">Please sign in to view your profile.</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <Header />
+        <div className="container mx-auto px-4 py-6">
+          <div className="text-center">
+            <div className="mb-4">Loading profile...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
@@ -57,24 +138,22 @@ const Profile = () => {
           <div className="flex items-center gap-4">
             <Avatar className="w-20 h-20">
               <AvatarFallback className="bg-primary-foreground text-primary text-2xl">
-                {userData.name.split(' ').map(n => n[0]).join('')}
+                {(formData.full_name || user.email).split(' ').map(n => n[0]).join('').slice(0, 2)}
               </AvatarFallback>
             </Avatar>
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-2xl font-bold text-primary-foreground">
-                  {userData.name}
+                  {formData.full_name || user.email}
                 </h1>
-                {userData.verified && (
-                  <Badge className="bg-success text-success-foreground">
-                    <Shield size={12} className="mr-1" />
-                    Verified
-                  </Badge>
-                )}
+                <Badge className="bg-success text-success-foreground">
+                  <Shield size={12} className="mr-1" />
+                  Verified
+                </Badge>
               </div>
-              <p className="text-primary-foreground/90">{userData.email}</p>
+              <p className="text-primary-foreground/90">{user.email}</p>
               <p className="text-primary-foreground/80 text-sm">
-                Member since {userData.joinDate}
+                Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Recently'}
               </p>
             </div>
           </div>
@@ -82,6 +161,37 @@ const Profile = () => {
       </div>
 
       <div className="container mx-auto px-4 py-6">
+        {/* Profile Status */}
+        {!profile && !profileLoading && (
+          <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-600 dark:text-blue-400 font-medium">Create Your Profile</p>
+                <p className="text-sm text-blue-600/80 dark:text-blue-400/80">
+                  Complete your profile information below to get the most out of FlatMate.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => refreshProfile()}
+                  className="border-blue-500 text-blue-600 hover:bg-blue-500/10"
+                >
+                  Refresh
+                </Button>
+                <Button 
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  className="bg-blue-500 text-white hover:bg-blue-600"
+                >
+                  Create Profile
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <Tabs defaultValue="profile" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="profile" className="flex items-center gap-2">
@@ -112,17 +222,17 @@ const Profile = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" defaultValue={userData.name} />
+                    <Input 
+                      id="name" 
+                      value={formData.full_name || profile?.full_name || ''}
+                      onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                      disabled={!isEditing}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" defaultValue={userData.email} disabled />
+                    <Input id="email" type="email" value={user.email} disabled />
                   </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" defaultValue={userData.phone} />
                 </div>
 
                 <div>
@@ -130,14 +240,38 @@ const Profile = () => {
                   <Textarea 
                     id="bio" 
                     placeholder="Tell others about yourself..."
-                    defaultValue={userData.bio}
+                    value={formData.bio || profile?.bio || ''}
+                    onChange={(e) => setFormData({...formData, bio: e.target.value})}
                     rows={4}
+                    disabled={!isEditing}
                   />
                 </div>
 
-                <Button className="bg-gradient-accent hover:opacity-90 transition-smooth">
-                  Save Changes
-                </Button>
+                <div className="flex gap-2">
+                  {isEditing ? (
+                    <>
+                      <Button 
+                        onClick={handleSave}
+                        className="bg-gradient-accent hover:opacity-90 transition-smooth"
+                      >
+                        Save Changes
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setIsEditing(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button 
+                      onClick={() => setIsEditing(true)}
+                      className="bg-gradient-accent hover:opacity-90 transition-smooth"
+                    >
+                      Edit Profile
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

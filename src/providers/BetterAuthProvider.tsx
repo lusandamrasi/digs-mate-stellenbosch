@@ -23,14 +23,26 @@ export function BetterAuthProvider({ children }: { children: ReactNode }) {
         const currentUser = await getUser()
         setSession(currentSession)
         if (currentUser) {
-          // Sync user to public table
-          const syncedUser = await syncUserToPublicTable(currentUser)
-          setUser(syncedUser || currentUser)
+          console.log('Setting initial user:', currentUser.email)
+          setUser(currentUser)
+          
+          // Try to sync user to public table
+          try {
+            const syncedUser = await syncUserToPublicTable(currentUser)
+            if (syncedUser) {
+              console.log('User synced to public table:', syncedUser.email)
+              setUser(syncedUser)
+            }
+          } catch (syncError) {
+            console.error('Error syncing initial user:', syncError)
+            // Keep the original user if sync fails
+          }
         } else {
           setUser(null)
         }
       } catch (error) {
         console.error('Error getting initial session:', error)
+        setUser(null)
       } finally {
         setIsLoading(false)
       }
@@ -41,14 +53,33 @@ export function BetterAuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email)
         setSession(session)
+        
         if (session?.user) {
-          // Sync user to public table
-          const syncedUser = await syncUserToPublicTable(session.user)
-          setUser(syncedUser || session.user)
+          console.log('Setting user:', session.user.email)
+          setUser(session.user)
+          
+          // Sync user to public table in background with timeout
+          const syncPromise = syncUserToPublicTable(session.user)
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Sync timeout')), 10000)
+          )
+          
+          try {
+            const syncedUser = await Promise.race([syncPromise, timeoutPromise])
+            if (syncedUser) {
+              console.log('User synced to public table:', syncedUser.email)
+              setUser(syncedUser)
+            }
+          } catch (syncError) {
+            console.error('Error syncing user:', syncError)
+            // Keep the original user if sync fails
+          }
         } else {
           setUser(null)
         }
+        
         setIsLoading(false)
       }
     )
