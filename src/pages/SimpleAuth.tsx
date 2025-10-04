@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Eye, EyeOff } from 'lucide-react'
 import { signUp, signIn } from '@/lib/supabase-simple'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/providers/BetterAuthProvider'
 
 const Auth = () => {
@@ -57,18 +58,60 @@ const Auth = () => {
     setError('')
 
     const formData = new FormData(e.currentTarget)
-    const email = formData.get('email') as string
+    const identifier = formData.get('identifier') as string // Can be email or username
     const password = formData.get('password') as string
 
     try {
-      const { data, error } = await signIn(email, password)
+      console.log('Looking up user with identifier:', identifier)
+      
+      let actualEmail = identifier // Default to identifier (could be email)
+      
+      // Try to find user by username in user_profiles table
+      if (!identifier.includes('@')) {
+        // This looks like a username, not an email
+        console.log('Identifier looks like username, searching profiles...')
+        
+        const { data: profileData, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('email, username')
+          .eq('username', identifier)
+          .single()
+        
+        console.log('Username lookup result:', { profileData, profileError })
+        
+        if (profileData && !profileError) {
+          actualEmail = profileData.email
+          console.log('Found profile by username, using email:', actualEmail)
+        } else {
+          setError('Username not found')
+          setIsLoading(false)
+          return
+        }
+      } else {
+        // This looks like an email, check if there's a profile
+        console.log('Identifier looks like email, checking for profile...')
+        
+        const { data: profileData, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('email, username')
+          .eq('email', identifier)
+          .single()
+        
+        console.log('Email profile lookup result:', { profileData, profileError })
+        
+        // Use the email directly (whether profile exists or not)
+        actualEmail = identifier
+      }
+      
+      console.log('Attempting sign-in with email:', actualEmail)
+      const { data, error } = await signIn(actualEmail, password)
       
       if (error) {
+        console.log('Sign-in error:', error)
         setError(error.message)
         setIsLoading(false)
       } else {
         console.log('Sign in successful:', data)
-        // Navigate to dashboard after successful signin
         navigate('/dashboard')
       }
     } catch (err) {
@@ -97,9 +140,9 @@ const Auth = () => {
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div>
                   <Input
-                    name="email"
-                    type="email"
-                    placeholder="Email"
+                    name="identifier"
+                    type="text"
+                    placeholder="Email or Username"
                     required
                     disabled={isLoading}
                   />

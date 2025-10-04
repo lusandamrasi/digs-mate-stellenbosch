@@ -1,83 +1,97 @@
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Edit2, Home, Users, Settings, Bell, Shield, LogOut, MapPin, Calendar } from "lucide-react";
+import { Edit2, Users, Settings, Bell, Shield, LogOut, Bookmark } from "lucide-react";
 import { useAuth } from "@/providers/BetterAuthProvider";
 import { updateUserProfile } from "@/lib/supabase-simple";
-import { useUserProfile, useUpdateUserProfile, useCreateUserProfile } from "@/hooks/useQueries";
-import { useState, useEffect } from "react";
+import { useUserProfile, useUpdateUserProfile, useCreateUserProfile, useUploadProfilePhoto, useCheckUsernameAvailable } from "@/hooks/useQueries";
+import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
+import SavedModal from "@/components/SavedModal";
 
-// Mock user data
-const userData = {
-  name: "Alex Johnson",
-  email: "alex.johnson@student.sun.ac.za",
-  phone: "+27 82 123 4567",
-  bio: "3rd year BCom student at Stellenbosch University. Love studying in quiet environments and enjoy weekend braais with friends.",
-  verified: true,
-  joinDate: "September 2023"
-};
 
-// Mock user listings
-const userListings = [
-  {
-    id: "1",
-    type: "property",
-    title: "Modern 2-bedroom apartment",
-    price: "R4,500/month",
-    location: "Stellenbosch Central",
-    status: "active",
-    views: 45,
-    inquiries: 8,
-    postedDate: "2024-01-15"
-  },
-  {
-    id: "2", 
-    type: "roommate",
-    title: "Looking for 1 roommate - Dalsig",
-    price: "R2,500/month", 
-    location: "Dalsig",
-    status: "active",
-    views: 23,
-    inquiries: 3,
-    postedDate: "2024-01-10"
-  }
-];
+// User listings will be fetched from the database
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { data: profile, isLoading: profileLoading, refetch: refreshProfile } = useUserProfile(user?.id || '');
   const updateProfileMutation = useUpdateUserProfile();
   const createProfileMutation = useCreateUserProfile();
+  const uploadPhotoMutation = useUploadProfilePhoto();
+  const checkUsernameMutation = useCheckUsernameAvailable();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
+    username: '',
     full_name: '',
     bio: ''
   });
+  const [usernameError, setUsernameError] = useState<string>('');
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile) {
       setFormData({
-        full_name: profile.full_name || profile.name || '',
+        username: profile.username || '',
+        full_name: profile.full_name || '',
         bio: profile.bio || ''
       });
     } else if (user) {
       // Fallback to user data from auth
       setFormData({
+        username: user.email?.split('@')[0] || '',
         full_name: user.user_metadata?.full_name || user.email || '',
         bio: user.user_metadata?.bio || ''
       });
     }
   }, [profile, user]);
 
+  const validateUsername = async (username: string): Promise<boolean> => {
+    if (!username || username.length < 3) {
+      setUsernameError('Username must be at least 3 characters long');
+      return false;
+    }
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+      setUsernameError('Username can only contain letters, numbers, underscores, and hyphens');
+      return false;
+    }
+
+    setIsCheckingUsername(true);
+    try {
+      const isAvailable = await checkUsernameMutation.mutateAsync(username);
+      if (!isAvailable) {
+        setUsernameError('Username not available - try a new one!');
+        return false;
+      }
+      setUsernameError('');
+      return true;
+    } catch (error) {
+      console.error('Error checking username:', error);
+      setUsernameError('Error checking username availability');
+      return false;
+    } finally {
+      setIsCheckingUsername(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!user) return;
+    
+    // Validate username if it has changed
+    if (formData.username !== profile?.username) {
+      const isUsernameValid = await validateUsername(formData.username);
+      if (!isUsernameValid) {
+        return;
+      }
+    }
     
     try {
       if (profile) {
@@ -92,14 +106,56 @@ const Profile = () => {
           userId: user.id,
           userData: {
             email: user.email,
+            username: formData.username,
             full_name: formData.full_name,
             bio: formData.bio
           }
         });
       }
       setIsEditing(false);
+      toast.success('Changes saved!', {
+        description: 'Your profile has been updated successfully.',
+        duration: 3000,
+      });
     } catch (error) {
       console.error('Error saving profile:', error);
+      toast.error('Failed to save changes', {
+        description: 'Please try again.',
+        duration: 3000,
+      });
+    }
+  };
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    try {
+      const photoUrl = await uploadPhotoMutation.mutateAsync({
+        userId: user.id,
+        file
+      });
+
+      // Update the profile with the new photo URL
+      await updateProfileMutation.mutateAsync({
+        userId: user.id,
+        updates: { profile_photo_url: photoUrl }
+      });
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      alert('Failed to upload photo. Please try again.');
     }
   };
 
@@ -136,23 +192,31 @@ const Profile = () => {
       <div className="bg-gradient-primary py-8">
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-4">
-            <Avatar className="w-20 h-20">
-              <AvatarFallback className="bg-primary-foreground text-primary text-2xl">
-                {(formData.full_name || user.email).split(' ').map(n => n[0]).join('').slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <Avatar className="w-20 h-20 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => fileInputRef.current?.click()}>
+                {profile?.profile_photo_url && (
+                  <AvatarImage src={profile.profile_photo_url} alt="Profile photo" />
+                )}
+                <AvatarFallback className="bg-primary-foreground text-primary text-2xl">
+                  {(formData.full_name || user.email).split(' ').map(n => n[0]).join('').slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1.5 cursor-pointer hover:bg-primary/90 transition-colors" onClick={() => fileInputRef.current?.click()}>
+                <Edit2 size={12} />
+              </div>
+            </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-2xl font-bold text-primary-foreground">
                   {formData.full_name || user.email}
                 </h1>
-                <Badge className="bg-success text-success-foreground">
+                <Badge className={user?.email === 'lusandamrasi1@gmail.com' ? 'bg-[#D4AF37] text-black' : 'bg-success text-success-foreground'}>
                   <Shield size={12} className="mr-1" />
-                  Verified
+                  {user?.email === 'lusandamrasi1@gmail.com' ? 'Founder' : 'Verified'}
                 </Badge>
               </div>
               <p className="text-primary-foreground/90">{user.email}</p>
-              <p className="text-primary-foreground/80 text-sm">
+              <p className="text-primary-foreground/80 text-sm font-bold">
                 Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Recently'}
               </p>
             </div>
@@ -198,13 +262,13 @@ const Profile = () => {
               <Edit2 size={16} />
               Profile
             </TabsTrigger>
-            <TabsTrigger value="listings" className="flex items-center gap-2">
-              <Home size={16} />
-              Listings
-            </TabsTrigger>
             <TabsTrigger value="preferences" className="flex items-center gap-2">
               <Users size={16} />
               Preferences
+            </TabsTrigger>
+            <TabsTrigger value="saved" className="flex items-center gap-2">
+              <Bookmark size={16} />
+              Saved
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings size={16} />
@@ -219,6 +283,68 @@ const Profile = () => {
                 <CardTitle>Edit Profile</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+                
+                {/* Photo Upload Section */}
+                <div className="flex items-center gap-4 p-4 border rounded-lg">
+                  <Avatar className="w-16 h-16">
+                    {profile?.profile_photo_url && (
+                      <AvatarImage src={profile.profile_photo_url} alt="Profile photo" />
+                    )}
+                    <AvatarFallback className="bg-primary-foreground text-primary text-lg">
+                      {(formData.full_name || user.email).split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <h3 className="font-medium">Profile Photo</h3>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Upload a photo to personalize your profile
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadPhotoMutation.isPending}
+                    >
+                      {uploadPhotoMutation.isPending ? 'Uploading...' : 'Upload Photo'}
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Username Field */}
+                <div>
+                  <Label htmlFor="username">Username</Label>
+                  <Input 
+                    id="username" 
+                    value={formData.username}
+                    onChange={(e) => {
+                      setFormData({...formData, username: e.target.value});
+                      setUsernameError('');
+                    }}
+                    disabled={!isEditing || isCheckingUsername}
+                    placeholder="Enter your username"
+                    className={usernameError ? 'border-red-500' : ''}
+                  />
+                  {usernameError && (
+                    <p className="text-sm text-red-500 mt-1">{usernameError}</p>
+                  )}
+                  {isCheckingUsername && (
+                    <p className="text-sm text-blue-500 mt-1">Checking availability...</p>
+                  )}
+                  {isEditing && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Username can only contain letters, numbers and underscores.
+                    </p>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Full Name</Label>
@@ -252,7 +378,7 @@ const Profile = () => {
                     <>
                       <Button 
                         onClick={handleSave}
-                        className="bg-gradient-accent hover:opacity-90 transition-smooth"
+                        className="bg-primary hover:opacity-90 transition-smooth"
                       >
                         Save Changes
                       </Button>
@@ -266,7 +392,7 @@ const Profile = () => {
                   ) : (
                     <Button 
                       onClick={() => setIsEditing(true)}
-                      className="bg-gradient-accent hover:opacity-90 transition-smooth"
+                      className="bg-primary hover:opacity-90 transition-smooth"
                     >
                       Edit Profile
                     </Button>
@@ -276,68 +402,22 @@ const Profile = () => {
             </Card>
           </TabsContent>
 
-          {/* Listings Tab */}
-          <TabsContent value="listings">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Your Listings</h2>
-                <Button size="sm" className="bg-gradient-accent hover:opacity-90 transition-smooth">
-                  Create New Listing
-                </Button>
-              </div>
-
-              {userListings.map((listing) => (
-                <Card key={listing.id}>
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-foreground">{listing.title}</h3>
-                          <Badge 
-                            variant={listing.type === 'property' ? 'default' : 'secondary'}
-                          >
-                            {listing.type === 'property' ? 'Property' : 'Roommate'}
-                          </Badge>
-                          <Badge 
-                            variant={listing.status === 'active' ? 'default' : 'secondary'}
-                          >
-                            {listing.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <MapPin size={14} />
-                            {listing.location}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar size={14} />
-                            Posted {listing.postedDate}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xl font-bold text-primary">{listing.price}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <div className="flex gap-4 text-sm">
-                        <span className="text-muted-foreground">
-                          {listing.views} views
-                        </span>
-                        <span className="text-muted-foreground">
-                          {listing.inquiries} inquiries
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">Edit</Button>
-                        <Button variant="outline" size="sm">View</Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          {/* Saved Tab */}
+          <TabsContent value="saved">
+            <SavedModal 
+              trigger={
+                <div className="text-center py-12">
+                  <Bookmark className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-foreground mb-2">No saved posts yet</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Start exploring and save roommate posts you're interested in.
+                  </p>
+                  <Button className="bg-primary hover:opacity-90">
+                    Browse Posts
+                  </Button>
+                </div>
+              }
+            />
           </TabsContent>
 
           {/* Preferences Tab */}
@@ -436,11 +516,20 @@ const Profile = () => {
                   <Button variant="outline" className="w-full justify-start">
                     Change Password
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    Download My Data
-                  </Button>
-                  <Button variant="destructive" className="w-full justify-start">
-                    <LogOut size={16} className="mr-2" />
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    className="w-full justify-start"
+                    onClick={async () => {
+                      try {
+                        await signOut();
+                        // The auth provider will handle the redirect
+                      } catch (error) {
+                        console.error('Error signing out:', error);
+                      }
+                    }}
+                  >
+                    <LogOut size={16} className=" mr-2" />
                     Sign Out
                   </Button>
                 </CardContent>

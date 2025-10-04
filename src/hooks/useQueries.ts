@@ -76,10 +76,10 @@ export function useDeleteListing() {
 }
 
 // Roommate Posts Hooks
-export function useRoommatePosts(filters?: Parameters<typeof roommatePostsApi.getPosts>[0]) {
+export function useRoommatePosts() {
   return useQuery({
-    queryKey: [...queryKeys.roommatePosts, filters],
-    queryFn: () => roommatePostsApi.getPosts(filters),
+    queryKey: queryKeys.roommatePosts,
+    queryFn: () => roommatePostsApi.getRoommatePosts(),
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
@@ -87,7 +87,7 @@ export function useRoommatePosts(filters?: Parameters<typeof roommatePostsApi.ge
 export function useRoommatePost(id: string) {
   return useQuery({
     queryKey: queryKeys.roommatePost(id),
-    queryFn: () => roommatePostsApi.getPost(id),
+    queryFn: () => roommatePostsApi.getRoommatePostById(id),
     enabled: !!id,
   })
 }
@@ -96,7 +96,7 @@ export function useCreateRoommatePost() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: roommatePostsApi.createPost,
+    mutationFn: roommatePostsApi.createRoommatePost,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.roommatePosts })
     },
@@ -107,8 +107,8 @@ export function useUpdateRoommatePost() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Parameters<typeof roommatePostsApi.updatePost>[1] }) =>
-      roommatePostsApi.updatePost(id, updates),
+    mutationFn: ({ id, updates }: { id: string; updates: Parameters<typeof roommatePostsApi.updateRoommatePost>[1] }) =>
+      roommatePostsApi.updateRoommatePost(id, updates),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.roommatePosts })
       queryClient.setQueryData(queryKeys.roommatePost(data.id), data)
@@ -120,7 +120,7 @@ export function useDeleteRoommatePost() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: roommatePostsApi.deletePost,
+    mutationFn: roommatePostsApi.deleteRoommatePost,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.roommatePosts })
     },
@@ -333,5 +333,31 @@ export function useUploadProfilePhoto() {
         queryKey: queryKeys.userProfile(userId) 
       })
     },
+  })
+}
+
+export function useUploadRoommatePostPhotos() {
+  return useMutation({
+    mutationFn: ({ userId, postId, files }: { userId: string; postId: string; files: File[] }) =>
+      userApi.uploadRoommatePostPhotos(userId, postId, files),
+  })
+}
+
+export function useUploadRoommatePostPhotosTemporary() {
+  return useMutation({
+    mutationFn: ({ userId, files }: { userId: string; files: File[] }) =>
+      userApi.uploadRoommatePostPhotosTemporary(userId, files),
+  })
+}
+
+export function useCheckUsernameAvailable() {
+  return useMutation({
+    mutationFn: (username: string) => userApi.checkUsernameAvailable(username),
+  })
+}
+
+export function useGetUserByUsernameOrEmail() {
+  return useMutation({
+    mutationFn: (identifier: string) => userApi.getUserByUsernameOrEmail(identifier),
   })
 }

@@ -8,42 +8,6 @@ import { Search, MessageCircle, Send } from "lucide-react";
 
 // Mock conversations
 const conversations = [
-  {
-    id: "1",
-    name: "Sarah M.",
-    lastMessage: "Hi! Is the room still available?",
-    time: "2 min ago",
-    unread: 2,
-    listingTitle: "Modern Apartment - Stellenbosch Central",
-    listingPrice: "R4,500/month"
-  },
-  {
-    id: "2", 
-    name: "James K.",
-    lastMessage: "When can we schedule a viewing?",
-    time: "1 hour ago",
-    unread: 0,
-    listingTitle: "Roommate needed - Dalsig",
-    listingPrice: "R2,500/month"
-  },
-  {
-    id: "3",
-    name: "Emma L.",
-    lastMessage: "Thanks for the info! The place looks perfect.",
-    time: "Yesterday",
-    unread: 0,
-    listingTitle: "Lease Takeover - Die Boord", 
-    listingPrice: "R3,200/month"
-  },
-  {
-    id: "4",
-    name: "David R.",
-    lastMessage: "Can you tell me more about the area?",
-    time: "2 days ago",
-    unread: 1,
-    listingTitle: "Student Digs - Universiteitsoord",
-    listingPrice: "R3,900/month"
-  }
 ];
 
 const Messages = () => {
@@ -58,7 +22,7 @@ const Messages = () => {
             Messages
           </h1>
           <p className="text-primary-foreground/90">
-            Your conversations with potential roommates and landlords
+           Keep in touch with future roommates or anyone interested in your place!
           </p>
         </div>
       </div>
@@ -80,9 +44,9 @@ const Messages = () => {
               <MessageCircle size={64} className="mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold text-foreground mb-2">No messages yet</h3>
               <p className="text-muted-foreground mb-6">
-                Start browsing properties and connect with landlords or roommates
+                Start browsing properties and connect with roommates
               </p>
-              <Button className="bg-gradient-accent hover:opacity-90 transition-smooth">
+              <Button className="bg-blue-800 hover:opacity-90 transition-smooth">
                 Browse Properties
               </Button>
             </CardContent>

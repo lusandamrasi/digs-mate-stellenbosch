@@ -1,8 +1,8 @@
 import { supabase, Database } from './supabase'
 
-type User = Database['public']['Tables']['users']['Row']
-type UserInsert = Database['public']['Tables']['users']['Insert']
-type UserUpdate = Database['public']['Tables']['users']['Update']
+type User = Database['public']['Tables']['user_profiles']['Row']
+type UserInsert = Database['public']['Tables']['user_profiles']['Insert']
+type UserUpdate = Database['public']['Tables']['user_profiles']['Update']
 
 type Listing = Database['public']['Tables']['listings']['Row']
 type ListingInsert = Database['public']['Tables']['listings']['Insert']
@@ -49,6 +49,7 @@ export const userApi = {
       .insert({
         user_id: userId,
         email: userData.email || '',
+        username: userData.username || userData.email?.split('@')[0] || '',
         full_name: userData.full_name || '',
         bio: userData.bio || null,
         profile_photo_url: userData.profile_photo_url || null,
@@ -79,7 +80,7 @@ export const userApi = {
 
   async uploadProfilePhoto(userId: string, file: File): Promise<string> {
     const fileExt = file.name.split('.').pop()
-    const fileName = `${userId}/profile.${fileExt}`
+    const fileName = `profile-photos/${userId}/profile.${fileExt}`
     
     const { error: uploadError } = await supabase.storage
       .from('property-images')
@@ -92,6 +93,220 @@ export const userApi = {
       .getPublicUrl(fileName)
     
     return data.publicUrl
+  },
+
+  async uploadRoommatePostPhotos(userId: string, postId: string, files: File[]): Promise<string[]> {
+    // Compress images before upload
+    const compressedFiles = await Promise.all(
+      files.map(file => this.compressImage(file))
+    )
+
+    const uploadPromises = compressedFiles.map(async (file, index) => {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `roommate-posts/${userId}/${postId}/photo-${index + 1}.${fileExt}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from('property-images')
+        .upload(fileName, file)
+      
+      if (uploadError) throw uploadError
+      
+      const { data } = supabase.storage
+        .from('property-images')
+        .getPublicUrl(fileName)
+      
+      return data.publicUrl
+    })
+    
+    return Promise.all(uploadPromises)
+  },
+
+  async uploadRoommatePostPhotosTemporary(userId: string, files: File[]): Promise<string[]> {
+    // Generate a temporary ID for upload
+    const tempId = Date.now().toString()
+    
+    // Compress images before upload
+    const compressedFiles = await Promise.all(
+      files.map(file => this.compressImage(file))
+    )
+
+    const uploadPromises = compressedFiles.map(async (file, index) => {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `roommate-posts/${userId}/${tempId}/photo-${index + 1}.${fileExt}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from('property-images')
+        .upload(fileName, file)
+      
+      if (uploadError) throw uploadError
+      
+      const { data } = supabase.storage
+        .from('property-images')
+        .getPublicUrl(fileName)
+      
+      return data.publicUrl
+    })
+    
+    return Promise.all(uploadPromises)
+  },
+
+  async compressImage(file: File, maxWidth: number = 1200, quality: number = 0.8): Promise<File> {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const img = new Image()
+      
+      img.onload = () => {
+        // Calculate new dimensions
+        let { width, height } = img
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width
+          width = maxWidth
+        }
+        
+        canvas.width = width
+        canvas.height = height
+        
+        // Draw and compress
+        ctx?.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name, { type: 'image/jpeg' }))
+            } else {
+              resolve(file) // Fallback to original
+            }
+          },
+          'image/jpeg',
+          quality
+        )
+      }
+      
+      img.onerror = () => resolve(file) // Fallback to original
+      img.src = URL.createObjectURL(file)
+    })
+  },
+
+  async checkUsernameAvailable(username: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc('check_username_available', {
+      check_username: username
+    })
+    
+    if (error) throw error
+    return data
+  },
+
+  async getUserByUsernameOrEmail(identifier: string): Promise<User | null> {
+    const { data, error } = await supabase.rpc('get_user_by_identifier', {
+      identifier: identifier
+    })
+    
+    if (error) throw error
+    return data?.[0] || null
+  }
+}
+
+// Roommate Posts API
+export const roommatePostsApi = {
+  async getRoommatePosts(): Promise<(RoommatePost & { user: { username: string; full_name: string } | null })[]> {
+    const { data, error } = await supabase
+      .from('roommate_posts')
+      .select('*')
+      .eq('active', true)
+      .order('created_at', { ascending: false })
+    
+    if (error) throw error
+    
+    // Get user information separately to avoid join issues
+    if (data && data.length > 0) {
+      const userIds = Array.from(new Set(data.map(post => post.user_id)))
+      const { data: users } = await supabase
+        .from('user_profiles')
+        .select('user_id, username, full_name')
+        .in('user_id', userIds)
+      
+      // Add user info to posts
+      return data.map(post => ({
+        ...post,
+        user: users?.find(user => user.user_id === post.user_id) || null
+      }))
+    }
+    
+    return data || []
+  },
+
+  async getRoommatePostById(id: string): Promise<(RoommatePost & { user: { username: string; full_name: string } | null }) | null> {
+    const { data, error } = await supabase
+      .from('roommate_posts')
+      .select('*')
+      .eq('id', id)
+      .single()
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null
+      }
+      throw error
+    }
+    
+    if (data) {
+      // Get user information
+      const { data: user } = await supabase
+        .from('user_profiles')
+        .select('user_id, username, full_name')
+        .eq('user_id', data.user_id)
+        .single()
+      
+      return {
+        ...data,
+        user: user || null
+      }
+    }
+    
+    return null
+  },
+
+  async createRoommatePost(post: RoommatePostInsert): Promise<RoommatePost> {
+    const { data, error } = await supabase
+      .from('roommate_posts')
+      .insert(post)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async updateRoommatePost(id: string, updates: RoommatePostUpdate): Promise<RoommatePost> {
+    const { data, error } = await supabase
+      .from('roommate_posts')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async deleteRoommatePost(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('roommate_posts')
+      .update({ active: false })
+      .eq('id', id)
+    
+    if (error) throw error
+  },
+
+  async getUserRoommatePosts(userId: string): Promise<RoommatePost[]> {
+    const { data, error } = await supabase
+      .from('roommate_posts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    
+    if (error) throw error
+    return data || []
   }
 }
 
@@ -192,90 +407,6 @@ export const listingsApi = {
   }
 }
 
-// Roommate Posts API
-export const roommatePostsApi = {
-  async getPosts(filters?: {
-    postType?: 'roommate_needed' | 'lease_takeover'
-    limit?: number
-    offset?: number
-  }): Promise<RoommatePost[]> {
-    const { data, error } = await supabase.rpc('get_roommate_posts', {
-      post_type_filter: filters?.postType || null,
-      limit_count: filters?.limit || 20,
-      offset_count: filters?.offset || 0
-    })
-    
-    if (error) throw error
-    return data || []
-  },
-
-  async getPost(id: string): Promise<RoommatePost | null> {
-    const { data, error } = await supabase
-      .from('roommate_posts')
-      .select(`
-        *,
-        users!inner(full_name, profile_photo_url)
-      `)
-      .eq('id', id)
-      .single()
-    
-    if (error) throw error
-    return data
-  },
-
-  async createPost(post: RoommatePostInsert): Promise<RoommatePost> {
-    const { data, error } = await supabase
-      .from('roommate_posts')
-      .insert(post)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
-  },
-
-  async updatePost(id: string, updates: RoommatePostUpdate): Promise<RoommatePost> {
-    const { data, error } = await supabase
-      .from('roommate_posts')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
-  },
-
-  async deletePost(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('roommate_posts')
-      .delete()
-      .eq('id', id)
-    
-    if (error) throw error
-  },
-
-  async uploadPostPhotos(postId: string, files: File[]): Promise<string[]> {
-    const uploadPromises = files.map(async (file, index) => {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${postId}/photo_${index}.${fileExt}`
-      
-      const { error: uploadError } = await supabase.storage
-        .from('property-images')
-        .upload(fileName, file)
-      
-      if (uploadError) throw uploadError
-      
-      const { data } = supabase.storage
-        .from('property-images')
-        .getPublicUrl(fileName)
-      
-      return data.publicUrl
-    })
-    
-    return Promise.all(uploadPromises)
-  }
-}
 
 // Roommate Responses API
 export const roommateResponsesApi = {

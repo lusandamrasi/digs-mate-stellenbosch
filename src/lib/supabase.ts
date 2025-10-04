@@ -118,6 +118,7 @@ export type Database = {
           price_per_person: number | null
           description: string | null
           roommates_needed: number
+          current_roommates: number
           post_type: 'roommate_needed' | 'lease_takeover'
           active: boolean
           created_at: string
@@ -133,6 +134,7 @@ export type Database = {
           price_per_person?: number | null
           description?: string | null
           roommates_needed: number
+          current_roommates?: number
           post_type: 'roommate_needed' | 'lease_takeover'
           active?: boolean
           created_at?: string
@@ -148,6 +150,7 @@ export type Database = {
           price_per_person?: number | null
           description?: string | null
           roommates_needed?: number
+          current_roommates?: number
           post_type?: 'roommate_needed' | 'lease_takeover'
           active?: boolean
           created_at?: string
@@ -253,6 +256,41 @@ export type Database = {
           user_id?: string
           listing_id?: string
           created_at?: string
+        }
+      }
+      user_profiles: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          username: string
+          full_name: string
+          bio: string | null
+          profile_photo_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          username: string
+          full_name: string
+          bio?: string | null
+          profile_photo_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          username?: string
+          full_name?: string
+          bio?: string | null
+          profile_photo_url?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
     }

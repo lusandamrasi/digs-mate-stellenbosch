@@ -2,69 +2,15 @@ import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import PropertyCard from "@/components/PropertyCard";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Star, MapPin, RefreshCw } from "lucide-react";
+import { ArrowRight, Star, MapPin, RefreshCw, Users } from "lucide-react";
 import { useAuth } from "@/providers/BetterAuthProvider";
 import { useState } from "react";
 
-// Mock featured properties
-const featuredProperties = [
-  {
-    id: "1",
-    title: "Modern Student Apartment Near Campus",
-    price: 4500,
-    location: "Stellenbosch Central",
-    type: "apartment",
-    bedrooms: 2,
-    bathrooms: 1,
-    maxOccupants: 2,
-    rating: 4.8,
-    images: [
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-    ],
-    isVerified: true,
-    availableFrom: "1 March 2024",
-    description: "Beautiful modern apartment with all amenities included."
-  },
-  {
-    id: "6",
-    title: "Luxury Student Apartment Complex",
-    price: 7500,
-    location: "Stellenbosch Central",
-    type: "apartment",
-    bedrooms: 2,
-    bathrooms: 2,
-    maxOccupants: 2,
-    rating: 4.9,
-    images: [
-      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-    ],
-    isVerified: true,
-    availableFrom: "1 February 2024",
-    description: "Premium accommodation with gym, pool, and study areas."
-  }
-];
+// Featured properties will be fetched from the database
+const featuredProperties: any[] = [];
 
-// Mock roommate posts
-const featuredRoommatePosts = [
-  {
-    id: "1",
-    title: "Looking for 2 roommates in Dalsig",
-    budget: "R2,500 each",
-    location: "Dalsig",
-    description: "3rd year students looking for 2 more roommates to share a beautiful house",
-    postedBy: "Sarah M.",
-    timePosted: "2 hours ago"
-  },
-  {
-    id: "2", 
-    title: "Lease takeover available - Die Boord",
-    budget: "R3,200/month",
-    location: "Die Boord",
-    description: "Taking over my lease from March. Great location, 5 min walk to campus",
-    postedBy: "James K.",
-    timePosted: "4 hours ago"
-  }
-];
+// Recent roommate posts will be fetched from the database
+const featuredRoommatePosts: any[] = [];
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -106,11 +52,23 @@ const Dashboard = () => {
               View All <ArrowRight size={16} className="ml-1" />
             </Button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {featuredProperties.map((property) => (
-              <PropertyCard key={property.id} property={property} />
-            ))}
-          </div>
+          {featuredProperties.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-4">
+                <RefreshCw className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-semibold mb-2">No properties available yet</h3>
+                <p className="text-sm">
+                  Check back later for featured properties.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {featuredProperties.map((property) => (
+                <PropertyCard key={property.id} property={property} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -123,25 +81,37 @@ const Dashboard = () => {
               View All <ArrowRight size={16} className="ml-1" />
             </Button>
           </div>
-          <div className="space-y-4">
-            {featuredRoommatePosts.map((post) => (
-              <div key={post.id} className="bg-card p-4 rounded-lg shadow-soft border border-border">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-semibold font-bold text-foreground">{post.title}</h3>
-                  <span className="text-lg font-bold text-primary">{post.budget}</span>
-                </div>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
-                  <MapPin size={14} />
-                  {post.location}
-                </div>
-                <p className="text-sm text-muted-foreground mb-3">{post.description}</p>
-                <div className="flex justify-between items-center text-xs text-muted-foreground">
-                  <span>By {post.postedBy}</span>
-                  <span>{post.timePosted}</span>
-                </div>
+          {featuredRoommatePosts.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-4">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-semibold mb-2">No roommate posts yet</h3>
+                <p className="text-sm">
+                  Be the first to create a roommate post!
+                </p>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {featuredRoommatePosts.map((post) => (
+                <div key={post.id} className="bg-card p-4 rounded-lg shadow-soft border border-border">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold font-bold text-foreground">{post.title}</h3>
+                    <span className="text-lg font-bold text-primary">{post.budget}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+                    <MapPin size={14} />
+                    {post.location}
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">{post.description}</p>
+                  <div className="flex justify-between items-center text-xs text-muted-foreground">
+                    <span>By {post.postedBy}</span>
+                    <span>{post.timePosted}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>

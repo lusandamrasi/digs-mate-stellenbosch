@@ -1,83 +1,69 @@
-import Header from "@/components/Header";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Calendar, Users, MessageCircle, Heart, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { MapPin, Calendar, Users, MessageCircle, Heart, Trash2, Bookmark } from "lucide-react";
 
-// Mock saved listings data
-const savedListings = [
-  {
-    id: "3",
-    type: "lease-takeover",
-    title: "Lease takeover available - Die Boord",
-    budget: "R3,200/month",
-    location: "Die Boord",
-    availableFrom: "15 March 2024",
-    currentRoommates: 0,
-    totalRoommates: 1,
-    description: "I'm studying abroad next semester and need someone to take over my lease. Great location, 5 min walk to campus, fully furnished room.",
-    preferences: ["Single occupancy", "Furnished", "Close to campus"],
-    postedBy: "James K.",
-    timePosted: "4 hours ago",
-    images: ["https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"],
-    savedAt: "3 hours ago"
-  }
-];
+interface SavedItem {
+  id: string;
+  type: string;
+  title: string;
+  price?: number;
+  budget?: string;
+  location: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  maxOccupants?: number;
+  currentRoommates?: number;
+  totalRoommates?: number;
+  description: string;
+  preferences?: string[];
+  postedBy?: string;
+  timePosted?: string;
+  images?: string[];
+  savedAt: string;
+}
 
-const SavedListings = () => {
-  const [savedItems, setSavedItems] = useState(savedListings);
+interface SavedModalProps {
+  trigger: React.ReactNode;
+}
+
+const SavedModal = ({ trigger }: SavedModalProps) => {
+  // Empty saved items - will be populated from database
+  const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
 
   const handleRemoveSaved = (itemId: string) => {
     setSavedItems(prev => prev.filter(item => item.id !== itemId));
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <Header />
-      
-      {/* Page Header */}
-      <div className="bg-gradient-primary py-8">
-        <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold text-primary-foreground mb-2">
-            Saved Listings
-          </h1>
-          <p className="text-primary-foreground/90">
-            Your favorite properties and roommate posts
-          </p>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="bg-card border-b border-border py-4">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              {savedItems.length} saved items
+    <Dialog>
+      <DialogTrigger asChild>
+        {trigger}
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Bookmark size={20} />
+            Saved Posts
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          {savedItems.length === 0 ? (
+            <div className="text-center py-12">
+              <Heart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-foreground mb-2">No saved posts yet</h3>
+              <p className="text-muted-foreground mb-6">
+                Start exploring and save roommate posts you're interested in.
+              </p>
+              <Button className="bg-primary hover:opacity-90">
+                Browse Posts
+              </Button>
             </div>
-            <Button variant="outline" size="sm">
-              Clear All
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Saved Items */}
-      <div className="container mx-auto px-4 py-6">
-        {savedItems.length === 0 ? (
-          <div className="text-center py-12">
-            <Heart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-foreground mb-2">No saved listings yet</h3>
-            <p className="text-muted-foreground mb-6">
-              Start exploring and save properties or roommate posts you're interested in.
-            </p>
-            <Button className="bg-gradient-primary hover:opacity-90">
-              Browse Listings
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {savedItems.map((item) => (
+          ) : (
+            savedItems.map((item) => (
               <Card key={item.id} className="overflow-hidden">
                 <CardContent className="p-0">
                   <div className="flex flex-col md:flex-row">
@@ -134,15 +120,13 @@ const SavedListings = () => {
                           <Calendar size={14} />
                           Available {item.availableFrom}
                         </div>
-                        {item.type === 'property' && (
-                          <>
-                            <div className="flex items-center gap-1">
-                              <Users size={14} />
-                              {item.bedrooms} bed • {item.bathrooms} bath
-                            </div>
-                          </>
+                        {item.type === 'property' && item.bedrooms && (
+                          <div className="flex items-center gap-1">
+                            <Users size={14} />
+                            {item.bedrooms} bed • {item.bathrooms} bath
+                          </div>
                         )}
-                        {item.type === 'roommate-post' && (
+                        {item.type === 'roommate-post' && item.currentRoommates !== undefined && (
                           <div className="flex items-center gap-1">
                             <Users size={14} />
                             {item.currentRoommates}/{item.totalRoommates} roommates
@@ -171,7 +155,7 @@ const SavedListings = () => {
                           <Button variant="outline" size="sm">
                             View Details
                           </Button>
-                          <Button size="sm" className="bg-gradient-accent hover:opacity-90 transition-smooth">
+                          <Button size="sm" className="bg-primary hover:opacity-90">
                             <MessageCircle size={16} className="mr-2" />
                             Contact
                           </Button>
@@ -181,12 +165,12 @@ const SavedListings = () => {
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
-export default SavedListings;
+export default SavedModal;

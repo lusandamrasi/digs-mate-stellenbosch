@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Search, Users, Plus, MessageCircle, Heart } from "lucide-react";
+import { Home, Search, Users, Plus, MessageCircle } from "lucide-react";
 
 const TabNavigation = () => {
   const location = useLocation();
@@ -16,13 +16,12 @@ const TabNavigation = () => {
       ]
     },
     { path: "/post", label: "Post", icon: Plus },
-    { path: "/saved", label: "Saved", icon: Heart },
     { path: "/messages", label: "Messages", icon: MessageCircle },
   ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
-      <div className="grid grid-cols-6 h-16">
+      <div className="grid grid-cols-5 h-16">
         {tabs.map(({ path, label, icon: Icon }) => {
           const isActive = location.pathname === path;
           return (

@@ -10,7 +10,6 @@ import Dashboard from "./pages/Dashboard";
 import Listings from "./pages/Listings";
 import Roommates from "./pages/Roommates";
 import CreatePost from "./pages/CreatePost";
-import SavedListings from "./pages/SavedListings";
 import Messages from "./pages/Messages";
 import Profile from "./pages/Profile";
 import SimpleAuth from "./pages/SimpleAuth";
@@ -51,7 +50,6 @@ const App = () => (
                 <Route path="/listings" element={<ProtectedRoute><Listings /></ProtectedRoute>} />
                 <Route path="/roommates" element={<ProtectedRoute><Roommates /></ProtectedRoute>} />
                 <Route path="/post" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
-                <Route path="/saved" element={<ProtectedRoute><SavedListings /></ProtectedRoute>} />
                 <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

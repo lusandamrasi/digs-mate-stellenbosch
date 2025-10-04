@@ -9,8 +9,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Calendar, Users, MessageCircle, Filter, Heart, Plus } from "lucide-react";
+import { MapPin, Calendar, Users, MessageCircle, Filter, Heart, Plus, Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useRoommatePosts, useDeleteRoommatePost } from "@/hooks/useQueries";
+import { useAuth } from "@/providers/BetterAuthProvider";
+import { toast } from "sonner";
 import { 
   Select,
   SelectContent,
@@ -21,56 +25,11 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 
-// Mock roommate posts
-const roommatePosts = [
-  {
-    id: "1",
-    type: "looking-for-roommates",
-    title: "Looking for 2 roommates in Dalsig",
-    budget: "R2,500 each",
-    location: "Dalsig",
-    availableFrom: "1 March 2024",
-    currentRoommates: 1,
-    totalRoommates: 3,
-    description: "3rd year Engineering students looking for 2 more roommates to share a beautiful 3-bedroom house. We're clean, study-focused, and love to have fun on weekends!",
-    preferences: ["Non-smoker", "Student", "Quiet hours"],
-    postedBy: "Sarah M.",
-    timePosted: "2 hours ago",
-    images: ["https://images.unsplash.com/photo-1570129477492-45c003edd2be?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"]
-  },
-  {
-    id: "2",
-    type: "lease-takeover",
-    title: "Lease takeover available - Die Boord",
-    budget: "R3,200/month",
-    location: "Die Boord",
-    availableFrom: "15 March 2024",
-    currentRoommates: 0,
-    totalRoommates: 1,
-    description: "I'm studying abroad next semester and need someone to take over my lease. Great location, 5 min walk to campus, fully furnished room.",
-    preferences: ["Single occupancy", "Furnished", "Close to campus"],
-    postedBy: "James K.",
-    timePosted: "4 hours ago",
-    images: ["https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"]
-  },
-  {
-    id: "3",
-    type: "looking-for-roommates",
-    title: "Female roommate wanted - Universiteitsoord",
-    budget: "R1,950 each",
-    location: "Universiteitsoord",
-    availableFrom: "1 February 2024",
-    currentRoommates: 2,
-    totalRoommates: 3,
-    description: "Two BCom students looking for one more female roommate. We have a great study environment and love cooking together!",
-    preferences: ["Female only", "Non-smoker", "Study-focused"],
-    postedBy: "Emma L.",
-    timePosted: "1 day ago",
-    images: ["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"]
-  },
-];
-
 const Roommates = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { data: roommatePosts = [], isLoading } = useRoommatePosts();
+  const deleteRoommatePost = useDeleteRoommatePost();
   const [activeFilter, setActiveFilter] = useState('all');
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
   
@@ -92,6 +51,29 @@ const Roommates = () => {
     );
   };
 
+  const handleDeletePost = async (postId: string) => {
+    if (!user) {
+      toast.error('You must be logged in to delete posts');
+      return;
+    }
+
+    if (confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      try {
+        await deleteRoommatePost.mutateAsync(postId);
+        toast.success('Post deleted successfully');
+      } catch (error) {
+        console.error('Error deleting post:', error);
+        toast.error('Failed to delete post');
+      }
+    }
+  };
+
+  const handleEditPost = (postId: string) => {
+    // TODO: Implement edit functionality
+    // For now, just show a message
+    toast.info('Edit functionality coming soon!');
+  };
+
   const handlePreferenceToggle = (preference: string) => {
     setSelectedPreferences(prev => 
       prev.includes(preference)
@@ -110,30 +92,21 @@ const Roommates = () => {
   const filteredPosts = roommatePosts.filter(post => {
     // Basic type filter
     if (activeFilter !== 'all') {
-      if (activeFilter === 'looking-for-roommates' && post.type !== 'looking-for-roommates') return false;
-      if (activeFilter === 'lease-takeover' && post.type !== 'lease-takeover') return false;
+      if (activeFilter === 'looking-for-roommates' && post.post_type !== 'roommate_needed') return false;
+      if (activeFilter === 'lease-takeover' && post.post_type !== 'lease_takeover') return false;
     }
     
     // Roommate count filter
     if (roommateCountFilter !== 'all') {
       const count = parseInt(roommateCountFilter);
-      if (post.totalRoommates !== count) return false;
+      if (post.roommates_needed !== count) return false;
     }
     
     // Location filter
-    if (locationFilter !== 'all' && post.location !== locationFilter) return false;
+    if (locationFilter !== 'all' && post.location?.name !== locationFilter) return false;
     
     // Budget range filter
-    const postBudget = parseInt(post.budget.replace(/[^\d]/g, ''));
-    if (postBudget < budgetRange[0] || postBudget > budgetRange[1]) return false;
-    
-    // Preferences filter
-    if (selectedPreferences.length > 0) {
-      const hasMatchingPreference = selectedPreferences.some(pref => 
-        post.preferences.includes(pref)
-      );
-      if (!hasMatchingPreference) return false;
-    }
+    if (post.price_per_person && (post.price_per_person < budgetRange[0] || post.price_per_person > budgetRange[1])) return false;
     
     return true;
   });
@@ -304,17 +277,30 @@ const Roommates = () => {
         </div>
         
         <div className="space-y-6">
-          {filteredPosts.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-4">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50 animate-pulse" />
+                <h3 className="text-lg font-semibold mb-2">Loading posts...</h3>
+                <p className="text-sm">
+                  Please wait while we fetch the latest roommate posts.
+                </p>
+              </div>
+            </div>
+          ) : filteredPosts.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-muted-foreground mb-4">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <h3 className="text-lg font-semibold mb-2">No posts found</h3>
                 <p className="text-sm">
-                  Try adjusting your filters or check back later for new posts.
+                  No roommate posts available yet. Be the first to create a post!
                 </p>
               </div>
-              <Button variant="outline" onClick={clearAllFilters}>
-                Clear All Filters
+              <Button 
+                className="bg-gradient-primary hover:opacity-90"
+                onClick={() => navigate('/post')}
+              >
+                Create Post
               </Button>
             </div>
           ) : (
@@ -323,10 +309,10 @@ const Roommates = () => {
               <CardContent className="p-0">
                 <div className="flex flex-col md:flex-row">
                   {/* Image */}
-                  {post.images.length > 0 && (
+                  {post.photos && post.photos.length > 0 && (
                     <div className="md:w-1/3">
                       <img
-                        src={post.images[0]}
+                        src={post.photos[0]}
                         alt={post.title}
                         className="w-full h-48 md:h-full object-cover"
                       />
@@ -334,15 +320,15 @@ const Roommates = () => {
                   )}
                   
                   {/* Content */}
-                  <div className={`p-6 flex-1 ${post.images.length === 0 ? 'w-full' : ''}`}>
+                  <div className={`p-6 flex-1 ${!post.photos || post.photos.length === 0 ? 'w-full' : ''}`}>
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <Badge 
-                          variant={post.type === 'lease-takeover' ? 'destructive' : 'secondary'}
+                          variant={post.post_type === 'lease_takeover' ? 'destructive' : 'secondary'}
                           className="mb-2"
                         >
-                          {post.type === 'looking-for-roommates' ? 'Looking for Roommates' :
-                           post.type === 'lease-takeover' ? 'Lease Takeover' : 'Other'}
+                          {post.post_type === 'roommate_needed' ? 'Looking for Roommates' :
+                           post.post_type === 'lease_takeover' ? 'Lease Takeover' : 'Other'}
                         </Badge>
                         <h3 className="text-xl font-semibold text-foreground">{post.title}</h3>
                       </div>
@@ -360,44 +346,62 @@ const Roommates = () => {
                           />
                         </Button>
                         <div className="text-right">
-                          <div className="text-2xl font-bold text-primary">{post.budget}</div>
+                          <div className="text-2xl font-bold text-primary">
+                            {post.price_per_person ? `R${post.price_per_person.toLocaleString()}` : 'Price TBD'}
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-3">
-                      <div className="flex items-center gap-1">
-                        <MapPin size={14} />
-                        {post.location}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar size={14} />
-                        Available {post.availableFrom}
-                      </div>
+                      {post.location?.name && (
+                        <div className="flex items-center gap-1">
+                          <MapPin size={14} />
+                          {post.location.name}
+                        </div>
+                      )}
                       <div className="flex items-center gap-1">
                         <Users size={14} />
-                        {post.currentRoommates}/{post.totalRoommates} roommates
+                        {post.current_roommates || 1}/{post.current_roommates + post.roommates_needed}
                       </div>
                     </div>
 
-                    <p className="text-muted-foreground mb-4">{post.description}</p>
-
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {post.preferences.map((pref, index) => (
-                        <Badge key={index} variant="outline">
-                          {pref}
-                        </Badge>
-                      ))}
-                    </div>
+                    {post.description && (
+                      <p className="text-muted-foreground mb-4">{post.description}</p>
+                    )}
 
                     <div className="flex justify-between items-center">
                       <div className="text-sm text-muted-foreground">
-                        By {post.postedBy} • {post.timePosted}
+                        By {post.user?.username || post.user?.full_name || 'Unknown'} • {new Date(post.created_at).toLocaleDateString()}
                       </div>
-                      <Button size="sm" className="bg-gradient-accent hover:opacity-90 transition-smooth">
-                        <MessageCircle size={16} className="mr-2" />
-                        Message
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {user?.id === post.user_id && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditPost(post.id)}
+                              className="text-xs"
+                            >
+                              <Edit size={14} className="mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeletePost(post.id)}
+                              className="text-xs text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 size={14} className="mr-1" />
+                              Delete
+                            </Button>
+                          </>
+                        )}
+                        <Button size="sm" className="bg-blue-800 hover:opacity-90 transition-smooth">
+                          <MessageCircle size={16} className="mr-2" />
+                          Message
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

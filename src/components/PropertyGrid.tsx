@@ -207,7 +207,7 @@ const PropertyGrid = ({ filters }: PropertyGridProps) => {
 
         {/* Load more */}
         <div className="text-center mt-8">
-          <button className="bg-gradient-accent hover:opacity-90 transition-smooth text-accent-foreground px-8 py-3 rounded-lg font-medium">
+          <button className="bg-blue-700 hover:opacity-90 transition-smooth text-accent-foreground px-8 py-3 rounded-lg font-medium">
             Load More Properties
           </button>
         </div>
