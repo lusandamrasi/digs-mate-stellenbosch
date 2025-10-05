@@ -12,6 +12,10 @@ type RoommatePost = Database['public']['Tables']['roommate_posts']['Row']
 type RoommatePostInsert = Database['public']['Tables']['roommate_posts']['Insert']
 type RoommatePostUpdate = Database['public']['Tables']['roommate_posts']['Update']
 
+type LeaseTakeoverPost = Database['public']['Tables']['lease_takeover_posts']['Row']
+type LeaseTakeoverPostInsert = Database['public']['Tables']['lease_takeover_posts']['Insert']
+type LeaseTakeoverPostUpdate = Database['public']['Tables']['lease_takeover_posts']['Update']
+
 type RoommateResponse = Database['public']['Tables']['roommate_responses']['Row']
 type RoommateResponseInsert = Database['public']['Tables']['roommate_responses']['Insert']
 
@@ -301,6 +305,105 @@ export const roommatePostsApi = {
   async getUserRoommatePosts(userId: string): Promise<RoommatePost[]> {
     const { data, error } = await supabase
       .from('roommate_posts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    
+    if (error) throw error
+    return data || []
+  }
+}
+
+// Lease Takeover Posts API
+export const leaseTakeoverPostsApi = {
+  async getLeaseTakeoverPosts(): Promise<(LeaseTakeoverPost & { user: { username: string; full_name: string } | null })[]> {
+    const { data, error } = await supabase
+      .from('lease_takeover_posts')
+      .select('*')
+      .eq('active', true)
+      .order('created_at', { ascending: false })
+    
+    if (error) throw error
+    
+    // Get user information separately to avoid join issues
+    if (data && data.length > 0) {
+      const userIds = Array.from(new Set(data.map(post => post.user_id)))
+      const { data: users } = await supabase
+        .from('user_profiles')
+        .select('user_id, username, full_name')
+        .in('user_id', userIds)
+      
+      // Add user info to posts
+      return data.map(post => ({
+        ...post,
+        user: users?.find(user => user.user_id === post.user_id) || null
+      }))
+    }
+    
+    return data || []
+  },
+
+  async getLeaseTakeoverPostById(id: string): Promise<(LeaseTakeoverPost & { user: { username: string; full_name: string } | null }) | null> {
+    const { data, error } = await supabase
+      .from('lease_takeover_posts')
+      .select('*')
+      .eq('id', id)
+      .single()
+    
+    if (error) throw error
+    
+    // Get user information separately
+    if (data) {
+      const { data: user } = await supabase
+        .from('user_profiles')
+        .select('user_id, username, full_name')
+        .eq('user_id', data.user_id)
+        .single()
+      
+      return {
+        ...data,
+        user: user || null
+      }
+    }
+    
+    return null
+  },
+
+  async createLeaseTakeoverPost(post: LeaseTakeoverPostInsert): Promise<LeaseTakeoverPost> {
+    const { data, error } = await supabase
+      .from('lease_takeover_posts')
+      .insert(post)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async updateLeaseTakeoverPost(id: string, updates: LeaseTakeoverPostUpdate): Promise<LeaseTakeoverPost> {
+    const { data, error } = await supabase
+      .from('lease_takeover_posts')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async deleteLeaseTakeoverPost(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('lease_takeover_posts')
+      .update({ active: false })
+      .eq('id', id)
+    
+    if (error) throw error
+  },
+
+  async getUserLeaseTakeoverPosts(userId: string): Promise<LeaseTakeoverPost[]> {
+    const { data, error } = await supabase
+      .from('lease_takeover_posts')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })

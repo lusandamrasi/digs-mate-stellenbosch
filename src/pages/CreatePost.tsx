@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Users, RefreshCw, Upload } from "lucide-react";
 import { useState, useRef } from "react";
 import { useAuth } from "@/providers/BetterAuthProvider";
-import { useCreateRoommatePost, useUploadRoommatePostPhotosTemporary } from "@/hooks/useQueries";
+import { useCreateRoommatePost, useUploadRoommatePostPhotosTemporary, useCreateLeaseTakeoverPost } from "@/hooks/useQueries";
 import { toast } from "sonner";
 
 const CreatePost = () => {
   const { user } = useAuth();
   const createRoommatePost = useCreateRoommatePost();
+  const createLeaseTakeoverPost = useCreateLeaseTakeoverPost();
   const uploadPhotos = useUploadRoommatePostPhotosTemporary();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -33,6 +34,17 @@ const CreatePost = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string[]>([]);
+
+  // Form state for lease takeover post
+  const [takeoverForm, setTakeoverForm] = useState({
+    title: '',
+    monthly_rent: '',
+    location: '',
+    available_from: '',
+    lease_ends: '',
+    takeover_reason: '',
+    description: ''
+  });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -132,6 +144,75 @@ const CreatePost = () => {
       console.error('Error creating roommate post:', error);
       toast.error('Failed to create roommate post. Please try again.', { id: 'creating-post' });
       toast.dismiss('uploading-photos');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleTakeoverSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user?.id) {
+      toast.error('You must be logged in to create a post');
+      return;
+    }
+
+    if (!takeoverForm.title || !takeoverForm.monthly_rent) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setIsUploading(true);
+    toast.loading('Processing your post...', { id: 'creating-takeover-post' });
+
+    try {
+      // Upload photos first if any were selected
+      let photoUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        toast.loading('Uploading photos...', { id: 'uploading-takeover-photos' });
+        photoUrls = await uploadPhotos.mutateAsync({
+          userId: user.id,
+          files: selectedFiles
+        });
+        toast.dismiss('uploading-takeover-photos');
+      }
+
+      // Create the lease takeover post with photo URLs already included
+      await createLeaseTakeoverPost.mutateAsync({
+        user_id: user.id,
+        title: takeoverForm.title,
+        monthly_rent: parseFloat(takeoverForm.monthly_rent),
+        location: takeoverForm.location ? { name: takeoverForm.location } : null,
+        description: takeoverForm.description || null,
+        available_from: takeoverForm.available_from || null,
+        lease_ends: takeoverForm.lease_ends || null,
+        takeover_reason: takeoverForm.takeover_reason as any || null,
+        photos: photoUrls,
+        active: true
+      });
+
+      toast.success('Lease takeover post uploaded successfully!', { id: 'creating-takeover-post' });
+      toast.dismiss('uploading-takeover-photos');
+      
+      // Reset form
+      setTakeoverForm({
+        title: '',
+        monthly_rent: '',
+        location: '',
+        available_from: '',
+        lease_ends: '',
+        takeover_reason: '',
+        description: ''
+      });
+      
+      // Clean up image previews
+      imagePreview.forEach(url => URL.revokeObjectURL(url));
+      setSelectedFiles([]);
+      setImagePreview([]);
+    } catch (error) {
+      console.error('Error creating lease takeover post:', error);
+      toast.error('Failed to create lease takeover post. Please try again.', { id: 'creating-takeover-post' });
+      toast.dismiss('uploading-takeover-photos');
     } finally {
       setIsUploading(false);
     }
@@ -286,8 +367,7 @@ const CreatePost = () => {
                         <SelectItem value="Study-focused">Study-focused</SelectItem>
                         <SelectItem value="Pet-friendly">Pet-friendly</SelectItem>
                         <SelectItem value="Social">Social</SelectItem>
-                        <SelectItem value="Clean">Clean</SelectItem>
-                        <SelectItem value="Vegetarian">Vegetarian</SelectItem>
+                        
                       </SelectContent>
                     </Select>
                     {roommateForm.preferences.length > 0 && (
@@ -389,72 +469,153 @@ const CreatePost = () => {
                 <CardTitle>Lease Takeover</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div>
-                  <Label htmlFor="takeover-title">Post Title</Label>
-                  <Input id="takeover-title" placeholder="e.g., Lease takeover available - Die Boord" />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <form onSubmit={handleTakeoverSubmit} className="space-y-6">
                   <div>
-                    <Label htmlFor="monthly-rent">Monthly Rent (R)</Label>
-                    <Input id="monthly-rent" type="number" placeholder="3200" />
+                    <Label htmlFor="takeover-title">Post Title *</Label>
+                    <Input 
+                      id="takeover-title" 
+                      placeholder="e.g., Lease takeover available - Die Boord"
+                      value={takeoverForm.title}
+                      onChange={(e) => setTakeoverForm(prev => ({ ...prev, title: e.target.value }))}
+                      required
+                    />
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="monthly-rent">Monthly Rent (R) *</Label>
+                      <Input 
+                        id="monthly-rent" 
+                        type="number" 
+                        placeholder="3200"
+                        value={takeoverForm.monthly_rent}
+                        onChange={(e) => setTakeoverForm(prev => ({ ...prev, monthly_rent: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="takeover-location">Location</Label>
+                      <Input 
+                        id="takeover-location" 
+                        placeholder="e.g., Die Boord, Universiteitsoord"
+                        value={takeoverForm.location}
+                        onChange={(e) => setTakeoverForm(prev => ({ ...prev, location: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="lease-start">Available From</Label>
+                      <Input 
+                        id="lease-start" 
+                        type="date" 
+                        value={takeoverForm.available_from}
+                        onChange={(e) => setTakeoverForm(prev => ({ ...prev, available_from: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lease-end">Lease Ends</Label>
+                      <Input 
+                        id="lease-end" 
+                        type="date"
+                        value={takeoverForm.lease_ends}
+                        onChange={(e) => setTakeoverForm(prev => ({ ...prev, lease_ends: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
                   <div>
-                    <Label htmlFor="takeover-location">Location</Label>
-                    <Input id="takeover-location" placeholder="e.g., Die Boord, Universiteitsoord" />
+                    <Label htmlFor="takeover-reason">Reason for Takeover</Label>
+                    <Select 
+                      value={takeoverForm.takeover_reason}
+                      onValueChange={(value) => setTakeoverForm(prev => ({ ...prev, takeover_reason: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Why are you leaving?" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="abroad">Studying abroad</SelectItem>
+                        <SelectItem value="graduation">Graduating</SelectItem>
+                        <SelectItem value="moving">Moving cities</SelectItem>
+                        <SelectItem value="financial">Financial reasons</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="lease-start">Available From</Label>
-                    <Input id="lease-start" type="date" />
+                    <Label htmlFor="takeover-description">Description</Label>
+                    <Textarea 
+                      id="takeover-description" 
+                      placeholder="Describe the place, why you're leaving, what's included, and any important details..."
+                      rows={4}
+                      value={takeoverForm.description}
+                      onChange={(e) => setTakeoverForm(prev => ({ ...prev, description: e.target.value }))}
+                    />
                   </div>
+
+                  {/* Photos */}
                   <div>
-                    <Label htmlFor="lease-end">Lease Ends</Label>
-                    <Input id="lease-end" type="date" />
+                    <Label>Photos of your place</Label>
+                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                      <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground mb-2">Click to upload photos</p>
+                      <p className="text-sm text-muted-foreground">PNG, JPG up to 10MB (max 10 photos)</p>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        Choose Files
+                      </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                    </div>
+                    {imagePreview.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-sm text-muted-foreground mb-2">Image previews:</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {imagePreview.map((preview, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={preview}
+                                alt={`Preview ${index + 1}`}
+                                className="w-full h-24 object-cover rounded-lg border border-border"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeFile(index)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                              >
+                                ×
+                              </button>
+                              <p className="text-xs text-muted-foreground mt-1 truncate">
+                                {selectedFiles[index]?.name}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
 
-                <div>
-                  <Label htmlFor="takeover-reason">Reason for Takeover</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Why are you leaving?" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="abroad">Studying abroad</SelectItem>
-                      <SelectItem value="graduation">Graduating</SelectItem>
-                      <SelectItem value="moving">Moving cities</SelectItem>
-                      <SelectItem value="financial">Financial reasons</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="takeover-description">Description</Label>
-                  <Textarea 
-                    id="takeover-description" 
-                    placeholder="Describe the place, why you're leaving, what's included, and any important details..."
-                    rows={4}
-                  />
-                </div>
-
-                {/* Photos */}
-                <div>
-                  <Label>Photos of your place</Label>
-                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                    <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground mb-2">Click to upload or drag and drop</p>
-                    <p className="text-sm text-muted-foreground">PNG, JPG up to 10MB (max 10 photos)</p>
-                    <Button variant="outline" className="mt-4">Choose Files</Button>
-                  </div>
-                </div>
-
-                <Button size="lg" className="w-full bg-gradient-accent hover:opacity-90 transition-smooth">
-                  Post Lease Takeover
-                </Button>
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    className="w-full bg-blue-800 hover:opacity-90 transition-smooth"
+                    disabled={isUploading || createLeaseTakeoverPost.isPending}
+                  >
+                    {isUploading || createLeaseTakeoverPost.isPending ? 'Creating Post...' : 'Post Lease Takeover'}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
           </TabsContent>

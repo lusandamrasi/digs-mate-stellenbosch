@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { 
-  listingsApi, 
-  roommatePostsApi, 
-  roommateResponsesApi, 
-  chatsApi, 
-  messagesApi, 
+import {
+  listingsApi,
+  roommatePostsApi,
+  roommateResponsesApi,
+  leaseTakeoverPostsApi,
+  chatsApi,
+  messagesApi,
   savedListingsApi,
   userApi 
 } from '../lib/api'
@@ -16,6 +17,8 @@ export const queryKeys = {
   roommatePosts: ['roommate-posts'] as const,
   roommatePost: (id: string) => ['roommate-posts', id] as const,
   roommateResponses: (postId: string) => ['roommate-responses', postId] as const,
+  leaseTakeoverPosts: ['lease-takeover-posts'] as const,
+  leaseTakeoverPost: (id: string) => ['lease-takeover-posts', id] as const,
   chats: (userId: string) => ['chats', userId] as const,
   chat: (id: string) => ['chat', id] as const,
   messages: (chatId: string) => ['messages', chatId] as const,
@@ -123,6 +126,57 @@ export function useDeleteRoommatePost() {
     mutationFn: roommatePostsApi.deleteRoommatePost,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.roommatePosts })
+    },
+  })
+}
+
+// Lease Takeover Posts Hooks
+export function useLeaseTakeoverPosts() {
+  return useQuery({
+    queryKey: queryKeys.leaseTakeoverPosts,
+    queryFn: () => leaseTakeoverPostsApi.getLeaseTakeoverPosts(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+export function useLeaseTakeoverPost(id: string) {
+  return useQuery({
+    queryKey: queryKeys.leaseTakeoverPost(id),
+    queryFn: () => leaseTakeoverPostsApi.getLeaseTakeoverPostById(id),
+    enabled: !!id,
+  })
+}
+
+export function useCreateLeaseTakeoverPost() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: leaseTakeoverPostsApi.createLeaseTakeoverPost,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.leaseTakeoverPosts })
+    },
+  })
+}
+
+export function useUpdateLeaseTakeoverPost() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: any }) =>
+      leaseTakeoverPostsApi.updateLeaseTakeoverPost(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.leaseTakeoverPosts })
+    },
+  })
+}
+
+export function useDeleteLeaseTakeoverPost() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: leaseTakeoverPostsApi.deleteLeaseTakeoverPost,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.leaseTakeoverPosts })
     },
   })
 }

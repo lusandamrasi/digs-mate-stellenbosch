@@ -292,6 +292,56 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+      },
+      lease_takeover_posts: {
+        Row: {
+          id: string
+          user_id: string
+          listing_id: string | null
+          title: string
+          photos: string[] | null
+          location: any | null
+          monthly_rent: number | null
+          description: string | null
+          available_from: string | null
+          lease_ends: string | null
+          takeover_reason: 'abroad' | 'graduation' | 'moving' | 'financial' | 'other' | null
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          listing_id?: string | null
+          title: string
+          photos?: string[] | null
+          location?: any | null
+          monthly_rent?: number | null
+          description?: string | null
+          available_from?: string | null
+          lease_ends?: string | null
+          takeover_reason?: 'abroad' | 'graduation' | 'moving' | 'financial' | 'other' | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          listing_id?: string | null
+          title?: string
+          photos?: string[] | null
+          location?: any | null
+          monthly_rent?: number | null
+          description?: string | null
+          available_from?: string | null
+          lease_ends?: string | null
+          takeover_reason?: 'abroad' | 'graduation' | 'moving' | 'financial' | 'other' | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
       }
     }
     Views: {

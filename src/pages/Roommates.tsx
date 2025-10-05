@@ -12,8 +12,9 @@ import {
 import { MapPin, Calendar, Users, MessageCircle, Filter, Heart, Plus, Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useRoommatePosts, useDeleteRoommatePost } from "@/hooks/useQueries";
+import { useRoommatePosts, useDeleteRoommatePost, useLeaseTakeoverPosts, useDeleteLeaseTakeoverPost } from "@/hooks/useQueries";
 import { useAuth } from "@/providers/BetterAuthProvider";
+import ImageGallery from "@/components/ImageGallery";
 import { toast } from "sonner";
 import { 
   Select,
@@ -28,8 +29,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 const Roommates = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: roommatePosts = [], isLoading } = useRoommatePosts();
+  const { data: roommatePosts = [], isLoading: isLoadingRoommates } = useRoommatePosts();
+  const { data: leaseTakeoverPosts = [], isLoading: isLoadingTakeovers } = useLeaseTakeoverPosts();
   const deleteRoommatePost = useDeleteRoommatePost();
+  const deleteLeaseTakeoverPost = useDeleteLeaseTakeoverPost();
+  
+  // Combine both types of posts
+  const allPosts = [
+    ...roommatePosts.map(post => ({ ...post, post_type: 'roommate_needed' as const })),
+    ...leaseTakeoverPosts.map(post => ({ ...post, post_type: 'lease_takeover' as const }))
+  ];
+  
+  const isLoading = isLoadingRoommates || isLoadingTakeovers;
   const [activeFilter, setActiveFilter] = useState('all');
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
   
@@ -51,7 +62,7 @@ const Roommates = () => {
     );
   };
 
-  const handleDeletePost = async (postId: string) => {
+  const handleDeletePost = async (postId: string, postType: 'roommate_needed' | 'lease_takeover') => {
     if (!user) {
       toast.error('You must be logged in to delete posts');
       return;
@@ -59,7 +70,11 @@ const Roommates = () => {
 
     if (confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
       try {
-        await deleteRoommatePost.mutateAsync(postId);
+        if (postType === 'roommate_needed') {
+          await deleteRoommatePost.mutateAsync(postId);
+        } else {
+          await deleteLeaseTakeoverPost.mutateAsync(postId);
+        }
         toast.success('Post deleted successfully');
       } catch (error) {
         console.error('Error deleting post:', error);
@@ -89,24 +104,35 @@ const Roommates = () => {
     setSelectedPreferences([]);
   };
 
-  const filteredPosts = roommatePosts.filter(post => {
+  const filteredPosts = allPosts.filter(post => {
     // Basic type filter
     if (activeFilter !== 'all') {
       if (activeFilter === 'looking-for-roommates' && post.post_type !== 'roommate_needed') return false;
       if (activeFilter === 'lease-takeover' && post.post_type !== 'lease_takeover') return false;
     }
     
-    // Roommate count filter
-    if (roommateCountFilter !== 'all') {
-      const count = parseInt(roommateCountFilter);
-      if (post.roommates_needed !== count) return false;
+    // Property capacity filter (only for roommate posts)
+    if (roommateCountFilter !== 'all' && post.post_type === 'roommate_needed') {
+      const current = post.current_roommates || 0;
+      const needed = post.roommates_needed || 0;
+      const totalCapacity = current + needed;
+      const filterCapacity = parseInt(roommateCountFilter);
+      
+      if (filterCapacity === 4) {
+        // For 4+, check if total capacity is 4 or more
+        if (totalCapacity < 4) return false;
+      } else {
+        // For exact numbers, check if total capacity matches
+        if (totalCapacity !== filterCapacity) return false;
+      }
     }
     
     // Location filter
     if (locationFilter !== 'all' && post.location?.name !== locationFilter) return false;
     
     // Budget range filter
-    if (post.price_per_person && (post.price_per_person < budgetRange[0] || post.price_per_person > budgetRange[1])) return false;
+    const price = post.post_type === 'roommate_needed' ? post.price_per_person : post.monthly_rent;
+    if (price && (price < budgetRange[0] || price > budgetRange[1])) return false;
     
     return true;
   });
@@ -177,22 +203,22 @@ const Roommates = () => {
                     </Button>
                   </div>
                   
-                  {/* Roommate Count Filter */}
+                  {/* Property Capacity Filter */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      Roommate Count
+                      Property Capacity
                     </label>
                     <Select value={roommateCountFilter} onValueChange={setRoommateCountFilter}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Any count" />
+                        <SelectValue placeholder="Any capacity" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any count</SelectItem>
-                        <SelectItem value="1">1 roommate</SelectItem>
-                        <SelectItem value="2">2 roommates</SelectItem>
-                        <SelectItem value="3">3 roommates</SelectItem>
-                        <SelectItem value="4">4+ roommates</SelectItem>
+                        <SelectItem value="all">Any capacity</SelectItem>
+                        <SelectItem value="1">1 person</SelectItem>
+                        <SelectItem value="2">2 people</SelectItem>
+                        <SelectItem value="3">3 people</SelectItem>
+                        <SelectItem value="4">4+ people</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -267,7 +293,7 @@ const Roommates = () => {
         {/* Results Count */}
         <div className="mb-4 flex justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            Showing {filteredPosts.length} of {roommatePosts.length} posts
+            Showing {filteredPosts.length} of {allPosts.length} posts
           </p>
           {(roommateCountFilter !== 'all' || locationFilter !== 'all' || selectedPreferences.length > 0 || budgetRange[0] > 0 || budgetRange[1] < 15000) && (
             <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-xs">
@@ -308,13 +334,13 @@ const Roommates = () => {
             <Card key={post.id} className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex flex-col md:flex-row">
-                  {/* Image */}
+                  {/* Image Gallery */}
                   {post.photos && post.photos.length > 0 && (
                     <div className="md:w-1/3">
-                      <img
-                        src={post.photos[0]}
+                      <ImageGallery
+                        images={post.photos}
                         alt={post.title}
-                        className="w-full h-48 md:h-full object-cover"
+                        className="rounded-l-lg"
                       />
                     </div>
                   )}
@@ -347,7 +373,8 @@ const Roommates = () => {
                         </Button>
                         <div className="text-right">
                           <div className="text-2xl font-bold text-primary">
-                            {post.price_per_person ? `R${post.price_per_person.toLocaleString()}` : 'Price TBD'}
+                            {post.post_type === 'roommate_needed' && post.price_per_person ? `R${post.price_per_person.toLocaleString()}/person` : 
+                             post.post_type === 'lease_takeover' && post.monthly_rent ? `R${post.monthly_rent.toLocaleString()}/month` : 'Price TBD'}
                           </div>
                         </div>
                       </div>
@@ -360,10 +387,18 @@ const Roommates = () => {
                           {post.location.name}
                         </div>
                       )}
-                      <div className="flex items-center gap-1">
-                        <Users size={14} />
-                        {post.current_roommates || 1}/{post.current_roommates + post.roommates_needed}
-                      </div>
+                      {post.post_type === 'roommate_needed' && (
+                        <div className="flex items-center gap-1">
+                          <Users size={14} />
+                          {post.current_roommates || 1}/{post.current_roommates + post.roommates_needed}
+                        </div>
+                      )}
+                      {post.post_type === 'lease_takeover' && post.available_from && (
+                        <div className="flex items-center gap-1">
+                          <Calendar size={14} />
+                          Available {new Date(post.available_from).toLocaleDateString()}
+                        </div>
+                      )}
                     </div>
 
                     {post.description && (
@@ -389,7 +424,7 @@ const Roommates = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleDeletePost(post.id)}
+                              onClick={() => handleDeletePost(post.id, post.post_type)}
                               className="text-xs text-red-600 hover:text-red-700"
                             >
                               <Trash2 size={14} className="mr-1" />
