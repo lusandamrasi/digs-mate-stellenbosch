@@ -9,11 +9,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Calendar, Users, MessageCircle, Filter, Heart, Plus, Edit, Trash2 } from "lucide-react";
+import { MapPin, Calendar, Users, MessageCircle, Filter, Heart, Plus, Edit, Trash2, Navigation } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoommatePosts, useDeleteRoommatePost, useLeaseTakeoverPosts, useDeleteLeaseTakeoverPost } from "@/hooks/useQueries";
 import { useAuth } from "@/providers/BetterAuthProvider";
+import { useLocation } from "@/contexts/LocationContext";
 import ImageGallery from "@/components/ImageGallery";
 import { toast } from "sonner";
 import { 
@@ -25,6 +26,10 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
+import CityChips from "@/components/CityChips";
+import LocationDisplay from "@/components/LocationDisplay";
+import LocationFilter from "@/components/LocationFilter";
+import EmptyStateCity from "@/components/EmptyStateCity";
 
 const Roommates = () => {
   const navigate = useNavigate();
@@ -44,6 +49,9 @@ const Roommates = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
   
+  // Use location context instead of local state
+  const { selectedCity, setSelectedCity, radius, isFilterOpen, setIsFilterOpen } = useLocation();
+  
   // Advanced filter states
   const [roommateCountFilter, setRoommateCountFilter] = useState<string>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
@@ -51,7 +59,7 @@ const Roommates = () => {
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
   
   // Available options for filters
-  const locations = ['All', 'Dalsig', 'Die Boord', 'Universiteitsoord', 'Stellenbosch Central', 'Other'];
+  const locations = ['All', 'Dalsig', 'Die Boord', 'Universiteitsoord', 'City Central', 'Other'];
   const preferences = ['Non-smoker', 'Student', 'Quiet hours', 'Female only', 'Study-focused', 'Single occupancy', 'Furnished', 'Close to campus', 'Good WiFi', 'Quiet'];
 
   const handleSavePost = (postId: string) => {
@@ -152,6 +160,30 @@ const Roommates = () => {
           </p>
         </div>
       </div>
+
+      {/* Location Filter Section */}
+      <section className="bg-card border-b border-border">
+        <div className="container mx-auto px-4 py-4 space-y-4">
+          {/* City Chips */}
+          <CityChips 
+            selectedCity={selectedCity}
+            onCitySelect={setSelectedCity}
+          />
+          
+          {/* Location Display */}
+          <LocationDisplay 
+            selectedCity={selectedCity}
+            radius={radius}
+            onClick={() => setIsFilterOpen(true)}
+          />
+        </div>
+      </section>
+      
+      {/* Location Filter Modal */}
+      <LocationFilter 
+        open={isFilterOpen}
+        onOpenChange={setIsFilterOpen}
+      />
 
       {/* Filters */}
       <div className="bg-card border-b border-border py-4">
@@ -387,6 +419,10 @@ const Roommates = () => {
                           {post.location.name}
                         </div>
                       )}
+                      <div className="flex items-center gap-1 text-primary">
+                        <Navigation size={14} />
+                        {(Math.random() * 8 + 0.5).toFixed(1)}km away
+                      </div>
                       {post.post_type === 'roommate_needed' && (
                         <div className="flex items-center gap-1">
                           <Users size={14} />

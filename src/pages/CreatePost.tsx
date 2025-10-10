@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Users, RefreshCw, Upload } from "lucide-react";
+import { Users, RefreshCw, Upload, Clock } from "lucide-react";
 import { useState, useRef } from "react";
 import { useAuth } from "@/providers/BetterAuthProvider";
 import { useCreateRoommatePost, useUploadRoommatePostPhotosTemporary, useCreateLeaseTakeoverPost } from "@/hooks/useQueries";
@@ -28,7 +28,16 @@ const CreatePost = () => {
     current_roommates: '',
     roommates_needed: '',
     description: '',
-    preferences: [] as string[]
+    preferences: [] as string[],
+    lifestyle_preferences: {
+      study_habits: '',
+      cleanliness: '',
+      social_level: '',
+      sleep_schedule: '',
+      guests: '',
+      smoking: '',
+      pets: ''
+    }
   });
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -134,7 +143,16 @@ const CreatePost = () => {
         current_roommates: '',
         roommates_needed: '',
         description: '',
-        preferences: []
+        preferences: [],
+        lifestyle_preferences: {
+          study_habits: '',
+          cleanliness: '',
+          social_level: '',
+          sleep_schedule: '',
+          guests: '',
+          smoking: '',
+          pets: ''
+        }
       });
       // Clean up image previews
       imagePreview.forEach(url => URL.revokeObjectURL(url));
@@ -386,6 +404,161 @@ const CreatePost = () => {
                     )}
                   </div>
 
+                  {/* Lifestyle Compatibility Preferences */}
+                  <div>
+                    <Label className="text-base font-semibold">Lifestyle Compatibility</Label>
+                    <p className="text-sm text-muted-foreground mb-4">Help potential roommates find the best match</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="study-habits">Study Habits</Label>
+                        <Select 
+                          value={roommateForm.lifestyle_preferences.study_habits}
+                          onValueChange={(value) => setRoommateForm(prev => ({
+                            ...prev,
+                            lifestyle_preferences: { ...prev.lifestyle_preferences, study_habits: value }
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select study habits" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="quiet-focus">Quiet study environment</SelectItem>
+                            <SelectItem value="social-study">Social studying (study groups)</SelectItem>
+                            <SelectItem value="flexible">Flexible (both quiet and social)</SelectItem>
+                            <SelectItem value="library-focused">Library-focused</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="cleanliness">Cleanliness Level</Label>
+                        <Select 
+                          value={roommateForm.lifestyle_preferences.cleanliness}
+                          onValueChange={(value) => setRoommateForm(prev => ({
+                            ...prev,
+                            lifestyle_preferences: { ...prev.lifestyle_preferences, cleanliness: value }
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select cleanliness preference" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="very-clean">Very clean & organized</SelectItem>
+                            <SelectItem value="moderately-clean">Moderately clean</SelectItem>
+                            <SelectItem value="relaxed">Relaxed about mess</SelectItem>
+                            <SelectItem value="shared-chores">Shared cleaning responsibilities</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="social-level">Social Level</Label>
+                        <Select 
+                          value={roommateForm.lifestyle_preferences.social_level}
+                          onValueChange={(value) => setRoommateForm(prev => ({
+                            ...prev,
+                            lifestyle_preferences: { ...prev.lifestyle_preferences, social_level: value }
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select social preference" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="very-social">Very social (parties, events)</SelectItem>
+                            <SelectItem value="moderately-social">Moderately social</SelectItem>
+                            <SelectItem value="quiet">Quiet & private</SelectItem>
+                            <SelectItem value="flexible-social">Flexible</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="sleep-schedule">Sleep Schedule</Label>
+                        <Select 
+                          value={roommateForm.lifestyle_preferences.sleep_schedule}
+                          onValueChange={(value) => setRoommateForm(prev => ({
+                            ...prev,
+                            lifestyle_preferences: { ...prev.lifestyle_preferences, sleep_schedule: value }
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select sleep preference" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="early-bird">Early bird (early to bed/rise)</SelectItem>
+                            <SelectItem value="night-owl">Night owl (late to bed/rise)</SelectItem>
+                            <SelectItem value="flexible">Flexible schedule</SelectItem>
+                            <SelectItem value="respectful">Respectful of others' schedules</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="guests">Guest Policy</Label>
+                        <Select 
+                          value={roommateForm.lifestyle_preferences.guests}
+                          onValueChange={(value) => setRoommateForm(prev => ({
+                            ...prev,
+                            lifestyle_preferences: { ...prev.lifestyle_preferences, guests: value }
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select guest preference" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="frequent-guests">Frequent guests welcome</SelectItem>
+                            <SelectItem value="occasional-guests">Occasional guests OK</SelectItem>
+                            <SelectItem value="rare-guests">Rare guests only</SelectItem>
+                            <SelectItem value="no-guests">No overnight guests</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="smoking">Smoking Policy</Label>
+                        <Select 
+                          value={roommateForm.lifestyle_preferences.smoking}
+                          onValueChange={(value) => setRoommateForm(prev => ({
+                            ...prev,
+                            lifestyle_preferences: { ...prev.lifestyle_preferences, smoking: value }
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select smoking preference" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="non-smoker">Non-smoker (strict)</SelectItem>
+                            <SelectItem value="outdoor-smoking">Outdoor smoking OK</SelectItem>
+                            <SelectItem value="flexible">Flexible</SelectItem>
+                            <SelectItem value="smoker-friendly">Smoker-friendly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <Label htmlFor="pets">Pet Policy</Label>
+                        <Select 
+                          value={roommateForm.lifestyle_preferences.pets}
+                          onValueChange={(value) => setRoommateForm(prev => ({
+                            ...prev,
+                            lifestyle_preferences: { ...prev.lifestyle_preferences, pets: value }
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select pet preference" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="no-pets">No pets</SelectItem>
+                            <SelectItem value="small-pets">Small pets OK</SelectItem>
+                            <SelectItem value="pet-friendly">Pet-friendly</SelectItem>
+                            <SelectItem value="has-pets">I have pets</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
                     <Label htmlFor="roommate-description">Description</Label>
                     <Textarea 
@@ -506,13 +679,53 @@ const CreatePost = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="lease-start">Available From</Label>
+                      <Label htmlFor="lease-start">Available From *</Label>
                       <Input 
                         id="lease-start" 
                         type="date" 
                         value={takeoverForm.available_from}
                         onChange={(e) => setTakeoverForm(prev => ({ ...prev, available_from: e.target.value }))}
+                        required
                       />
+                      {takeoverForm.available_from && (
+                        <div className="mt-2">
+                          {(() => {
+                            const availableDate = new Date(takeoverForm.available_from);
+                            const today = new Date();
+                            const daysUntilAvailable = Math.ceil((availableDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            
+                            if (daysUntilAvailable < 0) {
+                              return (
+                                <Badge variant="destructive" className="text-xs">
+                                  <Clock size={12} className="mr-1" />
+                                  Already Available
+                                </Badge>
+                              );
+                            } else if (daysUntilAvailable <= 7) {
+                              return (
+                                <Badge variant="destructive" className="text-xs">
+                                  <Clock size={12} className="mr-1" />
+                                  Urgent - {daysUntilAvailable} days
+                                </Badge>
+                              );
+                            } else if (daysUntilAvailable <= 30) {
+                              return (
+                                <Badge variant="secondary" className="text-xs">
+                                  <Clock size={12} className="mr-1" />
+                                  Soon - {daysUntilAvailable} days
+                                </Badge>
+                              );
+                            } else {
+                              return (
+                                <Badge variant="outline" className="text-xs">
+                                  <Clock size={12} className="mr-1" />
+                                  {daysUntilAvailable} days away
+                                </Badge>
+                              );
+                            }
+                          })()}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="lease-end">Lease Ends</Label>
@@ -522,6 +735,21 @@ const CreatePost = () => {
                         value={takeoverForm.lease_ends}
                         onChange={(e) => setTakeoverForm(prev => ({ ...prev, lease_ends: e.target.value }))}
                       />
+                      {takeoverForm.lease_ends && takeoverForm.available_from && (
+                        <div className="mt-2">
+                          {(() => {
+                            const availableDate = new Date(takeoverForm.available_from);
+                            const endDate = new Date(takeoverForm.lease_ends);
+                            const leaseDuration = Math.ceil((endDate.getTime() - availableDate.getTime()) / (1000 * 60 * 60 * 24 * 30)); // months
+                            
+                            return (
+                              <Badge variant="outline" className="text-xs">
+                                {leaseDuration} month lease
+                              </Badge>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
                   </div>
 

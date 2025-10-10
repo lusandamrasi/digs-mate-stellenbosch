@@ -5,10 +5,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryProvider } from "./providers/QueryProvider";
 import { BetterAuthProvider as AuthProvider, useAuth } from "./providers/BetterAuthProvider";
 import { ThemeProvider } from "./providers/ThemeProvider";
+import { LocationProvider } from "./contexts/LocationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
-import Listings from "./pages/Listings";
 import Roommates from "./pages/Roommates";
+import SwipeScreen from "./pages/SwipeScreen";
 import CreatePost from "./pages/CreatePost";
 import Messages from "./pages/Messages";
 import Profile from "./pages/Profile";
@@ -38,27 +39,29 @@ const App = () => (
   <ThemeProvider>
     <AuthProvider>
       <QueryProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <div className="min-h-screen bg-background text-foreground">
-              <Routes>
-                <Route path="/" element={<RootRoute />} />
-                <Route path="/auth" element={<SimpleAuth />} />
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/listings" element={<ProtectedRoute><Listings /></ProtectedRoute>} />
-                <Route path="/roommates" element={<ProtectedRoute><Roommates /></ProtectedRoute>} />
-                <Route path="/post" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
-                <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              <TabNavigation />
-            </div>
-          </BrowserRouter>
-        </TooltipProvider>
+        <LocationProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <div className="min-h-screen bg-background text-foreground">
+                <Routes>
+                  <Route path="/" element={<RootRoute />} />
+                  <Route path="/auth" element={<SimpleAuth />} />
+                  <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/roommates" element={<ProtectedRoute><Roommates /></ProtectedRoute>} />
+                  <Route path="/swipe" element={<ProtectedRoute><SwipeScreen /></ProtectedRoute>} />
+                  <Route path="/post" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+                  <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+                  <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <TabNavigation />
+              </div>
+            </BrowserRouter>
+          </TooltipProvider>
+        </LocationProvider>
       </QueryProvider>
     </AuthProvider>
   </ThemeProvider>

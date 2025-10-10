@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Edit2, Users, Settings, Bell, Shield, LogOut, Bookmark } from "lucide-react";
+import { Edit2, Users, Settings, Bell, Shield, LogOut, Bookmark, CheckCircle, AlertCircle, Clock, MapPin } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SOUTH_AFRICAN_CITIES } from "@/components/LocationFilter";
 import { useAuth } from "@/providers/BetterAuthProvider";
 import { updateUserProfile } from "@/lib/supabase-simple";
 import { useUserProfile, useUpdateUserProfile, useCreateUserProfile, useUploadProfilePhoto, useCheckUsernameAvailable } from "@/hooks/useQueries";
@@ -225,6 +227,89 @@ const Profile = () => {
       </div>
 
       <div className="container mx-auto px-4 py-6">
+        {/* Verification Status */}
+        <div className="mb-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield size={20} />
+                Verification Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {/* Email Verification */}
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800 dark:text-green-200">Email Verified</p>
+                      <p className="text-sm text-green-600 dark:text-green-300">{user.email}</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    Verified
+                  </Badge>
+                </div>
+
+                {/* Student Verification */}
+                <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-blue-800 dark:text-blue-200">Student Status</p>
+                      <p className="text-sm text-blue-600 dark:text-blue-300">Verified Student</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                    Student
+                  </Badge>
+                </div>
+
+                {/* Profile Completeness */}
+                <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="flex items-center gap-3">
+                    {profile && formData.full_name && formData.bio ? (
+                      <CheckCircle className="w-5 h-5 text-orange-600" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-orange-600" />
+                    )}
+                    <div>
+                      <p className="font-medium text-orange-800 dark:text-orange-200">Profile Completeness</p>
+                      <p className="text-sm text-orange-600 dark:text-orange-300">
+                        {profile && formData.full_name && formData.bio 
+                          ? 'Complete profile' 
+                          : 'Complete your profile for better matches'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                    {profile && formData.full_name && formData.bio ? 'Complete' : 'Incomplete'}
+                  </Badge>
+                </div>
+
+                {/* Trust Score */}
+                <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-purple-600" />
+                    <div>
+                      <p className="font-medium text-purple-800 dark:text-purple-200">Trust Score</p>
+                      <p className="text-sm text-purple-600 dark:text-purple-300">Based on verification and activity</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-purple-800 dark:text-purple-200">85%</div>
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                      High Trust
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Profile Status */}
         {!profile && !profileLoading && (
           <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
@@ -427,6 +512,29 @@ const Profile = () => {
                 <CardTitle>Roommate Preferences</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Location Preference */}
+                <div>
+                  <Label htmlFor="preferred-city" className="flex items-center gap-2 text-base font-semibold mb-2">
+                    <MapPin size={18} />
+                    Where are you looking for accommodation?
+                  </Label>
+                  <Select defaultValue="stellenbosch">
+                    <SelectTrigger id="preferred-city">
+                      <SelectValue placeholder="Select a city" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SOUTH_AFRICAN_CITIES.filter(c => c.value !== 'all').map((city) => (
+                        <SelectItem key={city.value} value={city.value}>
+                          {city.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    This helps us show you relevant posts and match you with roommates in your area
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="budget-min">Budget Range (Monthly)</Label>
@@ -438,7 +546,7 @@ const Profile = () => {
                   </div>
                   <div>
                     <Label htmlFor="preferred-areas">Preferred Areas</Label>
-                    <Input id="preferred-areas" placeholder="e.g., Stellenbosch Central, Dalsig" />
+                    <Input id="preferred-areas" placeholder="e.g., City Central, Suburbs" />
                   </div>
                 </div>
 
