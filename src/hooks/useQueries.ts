@@ -295,6 +295,15 @@ export function useMarkMessageAsRead() {
   })
 }
 
+export function useUnreadCount(userId: string) {
+  return useQuery({
+    queryKey: ['unread-count', userId],
+    queryFn: () => messagesApi.getUnreadCount(userId),
+    enabled: !!userId,
+    refetchInterval: 10000, // Refetch every 10 seconds for real-time updates
+  })
+}
+
 // Saved Listings Hooks
 export function useSavedListings(userId: string) {
   return useQuery({

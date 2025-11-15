@@ -118,7 +118,9 @@ export type Database = {
           price_per_person: number | null
           description: string | null
           roommates_needed: number
-          current_roommates: number
+          listing_capacity: number
+          accommodation_type: string | null
+          preferences: string[] | null
           post_type: 'roommate_needed' | 'lease_takeover'
           active: boolean
           created_at: string
@@ -134,7 +136,9 @@ export type Database = {
           price_per_person?: number | null
           description?: string | null
           roommates_needed: number
-          current_roommates?: number
+          listing_capacity: number
+          accommodation_type?: string | null
+          preferences?: string[] | null
           post_type: 'roommate_needed' | 'lease_takeover'
           active?: boolean
           created_at?: string
@@ -150,7 +154,9 @@ export type Database = {
           price_per_person?: number | null
           description?: string | null
           roommates_needed?: number
-          current_roommates?: number
+          listing_capacity?: number
+          accommodation_type?: string | null
+          preferences?: string[] | null
           post_type?: 'roommate_needed' | 'lease_takeover'
           active?: boolean
           created_at?: string
@@ -214,28 +220,34 @@ export type Database = {
       }
       messages: {
         Row: {
-          id: string
-          chat_id: string
-          sender_id: string
-          content: string
-          read: boolean
-          created_at: string
+          id: string;
+          chat_id: string;
+          sender_id: string;
+          receiver_id: string;
+          content: string;
+          read: boolean;
+          created_at: string;
+          updated_at: string;
         }
         Insert: {
-          id?: string
-          chat_id: string
-          sender_id: string
-          content: string
-          read?: boolean
-          created_at?: string
+          id?: string;
+          chat_id: string;
+          sender_id: string;
+          receiver_id: string; 
+          content: string;
+          read?: boolean;
+          created_at?: string;
+          updated_at?: string; 
         }
         Update: {
-          id?: string
-          chat_id?: string
-          sender_id?: string
-          content?: string
-          read?: boolean
-          created_at?: string
+          id?: string;
+          chat_id?: string;
+          sender_id?: string;
+          receiver_id?: string; 
+          content?: string;
+          read?: boolean;
+          created_at?: string;
+          updated_at?: string;
         }
       }
       saved_listings: {
@@ -303,6 +315,8 @@ export type Database = {
           location: any | null
           monthly_rent: number | null
           description: string | null
+          listing_capacity: number | null
+          accommodation_type: string | null
           available_from: string | null
           lease_ends: string | null
           takeover_reason: 'abroad' | 'graduation' | 'moving' | 'financial' | 'other' | null
@@ -319,6 +333,8 @@ export type Database = {
           location?: any | null
           monthly_rent?: number | null
           description?: string | null
+          listing_capacity?: number | null
+          accommodation_type?: string | null
           available_from?: string | null
           lease_ends?: string | null
           takeover_reason?: 'abroad' | 'graduation' | 'moving' | 'financial' | 'other' | null
@@ -335,6 +351,8 @@ export type Database = {
           location?: any | null
           monthly_rent?: number | null
           description?: string | null
+          listing_capacity?: number | null
+          accommodation_type?: string | null
           available_from?: string | null
           lease_ends?: string | null
           takeover_reason?: 'abroad' | 'graduation' | 'moving' | 'financial' | 'other' | null

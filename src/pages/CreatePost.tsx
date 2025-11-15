@@ -7,11 +7,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Users, RefreshCw, Upload, Clock } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { Users, RefreshCw, Upload, Clock, Calendar as CalendarIcon, Home, Check, X } from "lucide-react";
 import { useState, useRef } from "react";
 import { useAuth } from "@/providers/BetterAuthProvider";
 import { useCreateRoommatePost, useUploadRoommatePostPhotosTemporary, useCreateLeaseTakeoverPost } from "@/hooks/useQueries";
 import { toast } from "sonner";
+import Autocomplete from 'react-google-autocomplete';
+
 
 const CreatePost = () => {
   const { user } = useAuth();
@@ -19,25 +24,22 @@ const CreatePost = () => {
   const createLeaseTakeoverPost = useCreateLeaseTakeoverPost();
   const uploadPhotos = useUploadRoommatePostPhotosTemporary();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   
   // Form state for roommate post
   const [roommateForm, setRoommateForm] = useState({
     title: '',
     price_per_person: '',
     location: '',
-    current_roommates: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
+    placeId: '',
+    listing_capacity: '',
     roommates_needed: '',
+    accommodation_type: '',
+    accommodation_type_other: '',
     description: '',
-    preferences: [] as string[],
-    lifestyle_preferences: {
-      study_habits: '',
-      cleanliness: '',
-      social_level: '',
-      sleep_schedule: '',
-      guests: '',
-      smoking: '',
-      pets: ''
-    }
+    preferences: [] as string[]
   });
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -49,6 +51,12 @@ const CreatePost = () => {
     title: '',
     monthly_rent: '',
     location: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
+    placeId: '',
+    listing_capacity: '',
+    accommodation_type: '',
+    accommodation_type_other: '',
     available_from: '',
     lease_ends: '',
     takeover_reason: '',
@@ -98,7 +106,7 @@ const CreatePost = () => {
       return;
     }
 
-    if (!roommateForm.title || !roommateForm.roommates_needed) {
+    if (!roommateForm.title || !roommateForm.roommates_needed || !roommateForm.listing_capacity) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -123,10 +131,17 @@ const CreatePost = () => {
         user_id: user.id,
         title: roommateForm.title,
         price_per_person: roommateForm.price_per_person ? parseFloat(roommateForm.price_per_person) : null,
-        location: roommateForm.location ? { name: roommateForm.location } : null,
+        location: roommateForm.location ? { 
+          name: roommateForm.location,
+          latitude: roommateForm.latitude,
+          longitude: roommateForm.longitude,
+          place_id: roommateForm.placeId
+        } : null,
         description: roommateForm.description || null,
         roommates_needed: parseInt(roommateForm.roommates_needed),
-        current_roommates: parseInt(roommateForm.current_roommates || '0') + 1, // +1 for the person posting
+        listing_capacity: parseInt(roommateForm.listing_capacity),
+        accommodation_type: roommateForm.accommodation_type === 'other' ? roommateForm.accommodation_type_other : roommateForm.accommodation_type,
+        preferences: roommateForm.preferences,
         post_type: 'roommate_needed',
         photos: photoUrls,
         active: true
@@ -140,19 +155,15 @@ const CreatePost = () => {
         title: '',
         price_per_person: '',
         location: '',
-        current_roommates: '',
+        latitude: null,
+        longitude: null,
+        placeId: '',
+        listing_capacity: '',
         roommates_needed: '',
+        accommodation_type: '',
+        accommodation_type_other: '',
         description: '',
-        preferences: [],
-        lifestyle_preferences: {
-          study_habits: '',
-          cleanliness: '',
-          social_level: '',
-          sleep_schedule: '',
-          guests: '',
-          smoking: '',
-          pets: ''
-        }
+        preferences: []
       });
       // Clean up image previews
       imagePreview.forEach(url => URL.revokeObjectURL(url));
@@ -200,8 +211,15 @@ const CreatePost = () => {
         user_id: user.id,
         title: takeoverForm.title,
         monthly_rent: parseFloat(takeoverForm.monthly_rent),
-        location: takeoverForm.location ? { name: takeoverForm.location } : null,
+        location: takeoverForm.location ? { 
+          name: takeoverForm.location,
+          latitude: takeoverForm.latitude,
+          longitude: takeoverForm.longitude,
+          place_id: takeoverForm.placeId
+        } : null,
         description: takeoverForm.description || null,
+        listing_capacity: takeoverForm.listing_capacity ? parseInt(takeoverForm.listing_capacity) : null,
+        accommodation_type: takeoverForm.accommodation_type === 'other' ? takeoverForm.accommodation_type_other : takeoverForm.accommodation_type,
         available_from: takeoverForm.available_from || null,
         lease_ends: takeoverForm.lease_ends || null,
         takeover_reason: takeoverForm.takeover_reason as any || null,
@@ -217,6 +235,12 @@ const CreatePost = () => {
         title: '',
         monthly_rent: '',
         location: '',
+        latitude: null,
+        longitude: null,
+        placeId: '',
+        listing_capacity: '',
+        accommodation_type: '',
+        accommodation_type_other: '',
         available_from: '',
         lease_ends: '',
         takeover_reason: '',
@@ -283,7 +307,7 @@ const CreatePost = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <form onSubmit={handleRoommateSubmit} className="space-y-6">
-                  <div>
+                <div>
                     <Label htmlFor="roommate-title">Post Title *</Label>
                     <Input 
                       id="roommate-title" 
@@ -292,11 +316,42 @@ const CreatePost = () => {
                       onChange={(e) => setRoommateForm(prev => ({ ...prev, title: e.target.value }))}
                       required
                     />
-                  </div>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="budget-per-person">Budget per Person (R)</Label>
+                <div>
+                  <Label htmlFor="accommodation-type">Type of Accommodation *</Label>
+                  <Select 
+                    value={roommateForm.accommodation_type}
+                    onValueChange={(value) => setRoommateForm(prev => ({ ...prev, accommodation_type: value, accommodation_type_other: value === 'other' ? prev.accommodation_type_other : '' }))}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select accommodation type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="apartment">Apartment</SelectItem>
+                      <SelectItem value="digs">Digs</SelectItem>
+                      <SelectItem value="hostel">Hostel</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {roommateForm.accommodation_type === 'other' && (
+                    <div className="mt-2">
+                      <Label htmlFor="accommodation-type-other">Please specify *</Label>
+                      <Input 
+                        id="accommodation-type-other"
+                        placeholder="e.g., House, Cottage, etc."
+                        value={roommateForm.accommodation_type_other}
+                        onChange={(e) => setRoommateForm(prev => ({ ...prev, accommodation_type_other: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="budget-per-person">Estimated budget per Person (R)</Label>
                       <Input 
                         id="budget-per-person" 
                         type="number" 
@@ -306,59 +361,90 @@ const CreatePost = () => {
                         value={roommateForm.price_per_person}
                         onChange={(e) => setRoommateForm(prev => ({ ...prev, price_per_person: e.target.value }))}
                       />
-                      <p className="text-xs text-muted-foreground mt-1">Increments of R1000</p>
-                    </div>
-                    <div>
-                      <Label htmlFor="location-roommate">Location</Label>
-                      <Input 
-                        id="location-roommate" 
-                        placeholder="e.g., Dalsig, Die Boord"
-                        value={roommateForm.location}
-                        onChange={(e) => setRoommateForm(prev => ({ ...prev, location: e.target.value }))}
-                      />
-                    </div>
                   </div>
+                  <div>
+                    <Label htmlFor="location-roommate">Location</Label>
+                      <Autocomplete
+                        id="location-roommate"
+                        apiKey={GOOGLE_MAPS_KEY}
+                        onPlaceSelected={(place) => {
+                          if (!place.formatted_address) return;
+                          
+                          setRoommateForm(prev => ({ 
+                            ...prev, 
+                            location: place.formatted_address,
+                            latitude: place.geometry?.location?.lat() || null,
+                            longitude: place.geometry?.location?.lng() || null,
+                            placeId: place.place_id || '',
+                          }));
+                        }}
+                        options={{
+                          types: ['address'],
+                          componentRestrictions: { country: 'za' },
+                          fields: ['formatted_address', 'geometry', 'place_id'],
+                        }}
+                        value={roommateForm.location}
+                        placeholder="Start typing your address..."
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          setRoommateForm(prev => ({ ...prev, location: e.target.value }));
+                        }}
+                      />
+                  </div>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="current-roommates">Other Roommates Already There</Label>
-                      <Select 
-                        value={roommateForm.current_roommates}
-                        onValueChange={(value) => setRoommateForm(prev => ({ ...prev, current_roommates: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="How many others are there?" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">Just me (no others)</SelectItem>
-                          <SelectItem value="1">1 other person</SelectItem>
-                          <SelectItem value="2">2 other people</SelectItem>
-                          <SelectItem value="3">3+ other people</SelectItem>
-                        </SelectContent>
-                      </Select>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                      <Label htmlFor="listing-capacity">Listing Capacity *</Label>
+                      <Input 
+                        id="listing-capacity"
+                        type="number" 
+                        placeholder="2"
+                        step="1"
+                        min="2"
+                        max="10"
+                        value={roommateForm.listing_capacity}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, ''); // Only allow digits
+                          setRoommateForm(prev => ({ ...prev, listing_capacity: value }));
+                        }}
+                        onKeyDown={(e) => {
+                          // Prevent non-digit characters
+                          if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        required
+                      />
                       <p className="text-xs text-muted-foreground mt-1">
-                        This is how many other people are already living there
+                        Total number of people the place can accommodate
                       </p>
                     </div>
                     <div>
-                      <Label htmlFor="looking-for">How Many More Roommates Needed *</Label>
-                      <Select 
+                      <Label htmlFor="looking-for">Roommates Needed *</Label>
+                      <Input 
+                        id="looking-for"
+                        type="number" 
+                        placeholder="1"
+                        step="1"
+                        min="1"
+                        max="10"
                         value={roommateForm.roommates_needed}
-                        onValueChange={(value) => setRoommateForm(prev => ({ ...prev, roommates_needed: value }))}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, ''); // Only allow digits
+                          setRoommateForm(prev => ({ ...prev, roommates_needed: value }));
+                        }}
+                        onKeyDown={(e) => {
+                          // Prevent non-digit characters
+                          if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
                         required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="How many more do you need?" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1 more roommate</SelectItem>
-                          <SelectItem value="2">2 more roommates</SelectItem>
-                          <SelectItem value="3">3 more roommates</SelectItem>
-                          <SelectItem value="4">4+ more roommates</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      />
                       <p className="text-xs text-muted-foreground mt-1">
-                        How many additional roommates you're looking for
+                        This is how many additional roommates you're looking for
                       </p>
                     </div>
                   </div>
@@ -366,217 +452,94 @@ const CreatePost = () => {
                   <div>
                     <Label>Preferences</Label>
                     <Select onValueChange={(value) => {
-                      if (value && !roommateForm.preferences.includes(value)) {
-                        setRoommateForm(prev => ({
-                          ...prev,
-                          preferences: [...prev.preferences, value]
-                        }));
+                      if (value) {
+                        if (value === 'None') {
+                          // If "None" is selected, clear all other preferences and set only "None"
+                          setRoommateForm(prev => ({
+                            ...prev,
+                            preferences: ['None']
+                          }));
+                        } else if (!roommateForm.preferences.includes(value) && !roommateForm.preferences.includes('None')) {
+                          // Add preference only if "None" is not selected
+                          setRoommateForm(prev => ({
+                            ...prev,
+                            preferences: [...prev.preferences, value]
+                          }));
+                        }
                       }
                     }}>
                       <SelectTrigger>
                         <SelectValue placeholder="Add a preference" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Non-smoker">Non-smoker</SelectItem>
-                        <SelectItem value="Student">Student</SelectItem>
-                        <SelectItem value="Quiet hours">Quiet hours</SelectItem>
-                        <SelectItem value="Female only">Female only</SelectItem>
-                        <SelectItem value="Male only">Male only</SelectItem>
-                        <SelectItem value="Study-focused">Study-focused</SelectItem>
-                        <SelectItem value="Pet-friendly">Pet-friendly</SelectItem>
-                        <SelectItem value="Social">Social</SelectItem>
-                        
+                        {(() => {
+                          const hasNone = roommateForm.preferences.includes('None');
+                          const hasOtherPreferences = roommateForm.preferences.filter(p => p !== 'None').length > 0;
+                          const allPreferences = ['None', 'Non-smoker', 'Student', 'Female only', 'Male only', 'Study-focused', 'Pet-friendly', 'Social'];
+                          
+                          // If "None" is selected, only show "None"
+                          // If other preferences are selected, disable "None"
+                          const filteredPreferences = hasNone 
+                            ? ['None'] 
+                            : allPreferences;
+                          
+                          return filteredPreferences.map((pref) => {
+                            const isSelected = roommateForm.preferences.includes(pref);
+                            const isNone = pref === 'None';
+                            const shouldDisable = isSelected || (isNone && hasOtherPreferences);
+                            
+                            return (
+                              <SelectItem 
+                                key={pref}
+                                value={pref}
+                                disabled={shouldDisable}
+                                className={`${shouldDisable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                <div className="flex items-center justify-between w-full">
+                                  <span>{pref}</span>
+                                  {isSelected && <Check size={16} className="ml-2 text-primary opacity-100" />}
+                                </div>
+                              </SelectItem>
+                            );
+                          });
+                        })()}
                       </SelectContent>
                     </Select>
                     {roommateForm.preferences.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
                         {roommateForm.preferences.map((pref) => (
                           <Badge 
                             key={pref}
-                            variant="default"
-                            className="cursor-pointer"
+                            variant="secondary"
+                            className="cursor-pointer bg-muted hover:bg-muted/80 flex items-center gap-1"
                             onClick={() => togglePreference(pref)}
                           >
-                            {pref} ×
+                            {pref}
+                            <X size={14} className="ml-1" />
                           </Badge>
                         ))}
-                      </div>
+                  </div>
                     )}
-                  </div>
+                </div>
 
-                  {/* Lifestyle Compatibility Preferences */}
-                  <div>
-                    <Label className="text-base font-semibold">Lifestyle Compatibility</Label>
-                    <p className="text-sm text-muted-foreground mb-4">Help potential roommates find the best match</p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="study-habits">Study Habits</Label>
-                        <Select 
-                          value={roommateForm.lifestyle_preferences.study_habits}
-                          onValueChange={(value) => setRoommateForm(prev => ({
-                            ...prev,
-                            lifestyle_preferences: { ...prev.lifestyle_preferences, study_habits: value }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select study habits" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="quiet-focus">Quiet study environment</SelectItem>
-                            <SelectItem value="social-study">Social studying (study groups)</SelectItem>
-                            <SelectItem value="flexible">Flexible (both quiet and social)</SelectItem>
-                            <SelectItem value="library-focused">Library-focused</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="cleanliness">Cleanliness Level</Label>
-                        <Select 
-                          value={roommateForm.lifestyle_preferences.cleanliness}
-                          onValueChange={(value) => setRoommateForm(prev => ({
-                            ...prev,
-                            lifestyle_preferences: { ...prev.lifestyle_preferences, cleanliness: value }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select cleanliness preference" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="very-clean">Very clean & organized</SelectItem>
-                            <SelectItem value="moderately-clean">Moderately clean</SelectItem>
-                            <SelectItem value="relaxed">Relaxed about mess</SelectItem>
-                            <SelectItem value="shared-chores">Shared cleaning responsibilities</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="social-level">Social Level</Label>
-                        <Select 
-                          value={roommateForm.lifestyle_preferences.social_level}
-                          onValueChange={(value) => setRoommateForm(prev => ({
-                            ...prev,
-                            lifestyle_preferences: { ...prev.lifestyle_preferences, social_level: value }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select social preference" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="very-social">Very social (parties, events)</SelectItem>
-                            <SelectItem value="moderately-social">Moderately social</SelectItem>
-                            <SelectItem value="quiet">Quiet & private</SelectItem>
-                            <SelectItem value="flexible-social">Flexible</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="sleep-schedule">Sleep Schedule</Label>
-                        <Select 
-                          value={roommateForm.lifestyle_preferences.sleep_schedule}
-                          onValueChange={(value) => setRoommateForm(prev => ({
-                            ...prev,
-                            lifestyle_preferences: { ...prev.lifestyle_preferences, sleep_schedule: value }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select sleep preference" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="early-bird">Early bird (early to bed/rise)</SelectItem>
-                            <SelectItem value="night-owl">Night owl (late to bed/rise)</SelectItem>
-                            <SelectItem value="flexible">Flexible schedule</SelectItem>
-                            <SelectItem value="respectful">Respectful of others' schedules</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="guests">Guest Policy</Label>
-                        <Select 
-                          value={roommateForm.lifestyle_preferences.guests}
-                          onValueChange={(value) => setRoommateForm(prev => ({
-                            ...prev,
-                            lifestyle_preferences: { ...prev.lifestyle_preferences, guests: value }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select guest preference" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="frequent-guests">Frequent guests welcome</SelectItem>
-                            <SelectItem value="occasional-guests">Occasional guests OK</SelectItem>
-                            <SelectItem value="rare-guests">Rare guests only</SelectItem>
-                            <SelectItem value="no-guests">No overnight guests</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="smoking">Smoking Policy</Label>
-                        <Select 
-                          value={roommateForm.lifestyle_preferences.smoking}
-                          onValueChange={(value) => setRoommateForm(prev => ({
-                            ...prev,
-                            lifestyle_preferences: { ...prev.lifestyle_preferences, smoking: value }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select smoking preference" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="non-smoker">Non-smoker (strict)</SelectItem>
-                            <SelectItem value="outdoor-smoking">Outdoor smoking OK</SelectItem>
-                            <SelectItem value="flexible">Flexible</SelectItem>
-                            <SelectItem value="smoker-friendly">Smoker-friendly</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <Label htmlFor="pets">Pet Policy</Label>
-                        <Select 
-                          value={roommateForm.lifestyle_preferences.pets}
-                          onValueChange={(value) => setRoommateForm(prev => ({
-                            ...prev,
-                            lifestyle_preferences: { ...prev.lifestyle_preferences, pets: value }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select pet preference" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="no-pets">No pets</SelectItem>
-                            <SelectItem value="small-pets">Small pets OK</SelectItem>
-                            <SelectItem value="pet-friendly">Pet-friendly</SelectItem>
-                            <SelectItem value="has-pets">I have pets</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="roommate-description">Description</Label>
-                    <Textarea 
-                      id="roommate-description" 
-                      placeholder="Tell potential roommates about yourself, your lifestyle, and what you're looking for..."
-                      rows={4}
+                <div>
+                  <Label htmlFor="roommate-description">Description</Label>
+                  <Textarea 
+                    id="roommate-description" 
+                    placeholder="Tell potential roommates about yourself, your lifestyle, and what you're looking for..."
+                    rows={4}
                       value={roommateForm.description}
                       onChange={(e) => setRoommateForm(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
+                  />
+                </div>
 
-                  {/* Photos */}
-                  <div>
-                    <Label>Photos of your place</Label>
-                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                      <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
+                {/* Photos */}
+                <div>
+                  <Label>Photos of your place</Label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                    <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
                       <p className="text-muted-foreground mb-2">Click to upload photos</p>
-                      <p className="text-sm text-muted-foreground">PNG, JPG up to 10MB (max 10 photos)</p>
+                    <p className="text-sm text-muted-foreground">PNG, JPG up to 10MB (max 10 photos)</p>
                       <Button 
                         type="button" 
                         variant="outline" 
@@ -618,9 +581,9 @@ const CreatePost = () => {
                             </div>
                           ))}
                         </div>
-                      </div>
-                    )}
                   </div>
+                    )}
+                </div>
 
                   <Button 
                     type="submit"
@@ -629,7 +592,7 @@ const CreatePost = () => {
                     disabled={isUploading || createRoommatePost.isPending}
                   >
                     {isUploading ? 'Uploading...' : createRoommatePost.isPending ? 'Creating Post...' : 'Post Roommate Request'}
-                  </Button>
+                </Button>
                 </form>
               </CardContent>
             </Card>
@@ -643,7 +606,7 @@ const CreatePost = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <form onSubmit={handleTakeoverSubmit} className="space-y-6">
-                  <div>
+                <div>
                     <Label htmlFor="takeover-title">Post Title *</Label>
                     <Input 
                       id="takeover-title" 
@@ -652,47 +615,181 @@ const CreatePost = () => {
                       onChange={(e) => setTakeoverForm(prev => ({ ...prev, title: e.target.value }))}
                       required
                     />
-                  </div>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                <div>
+                    <Label htmlFor="takeover-accommodation-type">Type of Accommodation *</Label>
+                    <Select 
+                      value={takeoverForm.accommodation_type}
+                      onValueChange={(value) => setTakeoverForm(prev => ({ ...prev, accommodation_type: value, accommodation_type_other: value === 'other' ? prev.accommodation_type_other : '' }))}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select accommodation type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="apartment">Apartment</SelectItem>
+                        <SelectItem value="digs">Digs</SelectItem>
+                        <SelectItem value="hostel">Hostel</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {takeoverForm.accommodation_type === 'other' && (
+                      <div className="mt-2">
+                        <Label htmlFor="takeover-accommodation-type-other">Please specify *</Label>
+                        <Input 
+                          id="takeover-accommodation-type-other"
+                          placeholder="e.g., House, Cottage, etc."
+                          value={takeoverForm.accommodation_type_other}
+                          onChange={(e) => setTakeoverForm(prev => ({ ...prev, accommodation_type_other: e.target.value }))}
+                          required
+                        />
+                      </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
                       <Label htmlFor="monthly-rent">Monthly Rent (R) *</Label>
                       <Input 
                         id="monthly-rent" 
                         type="number" 
                         placeholder="3200"
+                        step="1000"
                         value={takeoverForm.monthly_rent}
                         onChange={(e) => setTakeoverForm(prev => ({ ...prev, monthly_rent: e.target.value }))}
                         required
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="takeover-location">Location</Label>
-                      <Input 
-                        id="takeover-location" 
-                        placeholder="e.g., Die Boord, Universiteitsoord"
+                  </div>
+                  <div>
+                    <Label htmlFor="takeover-location">Location</Label>
+                      <Autocomplete
+                        id="takeover-location"
+                        apiKey={GOOGLE_MAPS_KEY}
+                        onPlaceSelected={(place) => {
+                          if (!place.formatted_address) return;
+                          
+                          setTakeoverForm(prev => ({ 
+                            ...prev, 
+                            location: place.formatted_address,
+                            latitude: place.geometry?.location?.lat() || null,
+                            longitude: place.geometry?.location?.lng() || null,
+                            placeId: place.place_id || '',
+                          }));
+                        }}
+                        options={{
+                          types: ['address'],
+                          componentRestrictions: { country: 'za' },
+                          fields: ['formatted_address', 'geometry', 'place_id'],
+                        }}
                         value={takeoverForm.location}
-                        onChange={(e) => setTakeoverForm(prev => ({ ...prev, location: e.target.value }))}
+                        placeholder="Start typing your address..."
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          setTakeoverForm(prev => ({ ...prev, location: e.target.value }));
+                        }}
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                  <div>
+                    <Label htmlFor="takeover-listing-capacity">Listing Capacity</Label>
+                    <Input 
+                      id="takeover-listing-capacity"
+                      type="number" 
+                      placeholder="2"
+                      step="1"
+                      min="2"
+                      max="10"
+                      value={takeoverForm.listing_capacity}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, ''); // Only allow digits
+                        setTakeoverForm(prev => ({ ...prev, listing_capacity: value }));
+                      }}
+                      onKeyDown={(e) => {
+                        // Prevent non-digit characters
+                        if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Total number of people the place can accommodate
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
                       <Label htmlFor="lease-start">Available From *</Label>
-                      <Input 
-                        id="lease-start" 
-                        type="date" 
-                        value={takeoverForm.available_from}
-                        onChange={(e) => setTakeoverForm(prev => ({ ...prev, available_from: e.target.value }))}
-                        required
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={`w-full justify-start text-left font-normal ${!takeoverForm.available_from ? 'text-muted-foreground' : ''}`}
+                            id="lease-start"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {takeoverForm.available_from ? (
+                              format(new Date(takeoverForm.available_from), "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={takeoverForm.available_from ? new Date(takeoverForm.available_from) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                const selectedDate = format(date, 'yyyy-MM-dd');
+                                const selectedDateObj = new Date(selectedDate);
+                                
+                                // Check if lease_ends is already selected and if this date is after it
+                                if (takeoverForm.lease_ends) {
+                                  const leaseEndsDate = new Date(takeoverForm.lease_ends);
+                                  if (selectedDateObj > leaseEndsDate) {
+                                    toast.error('Available From date must be before Lease Ends date');
+                                    return;
+                                  }
+                                }
+                                
+                                setTakeoverForm(prev => ({ 
+                                  ...prev, 
+                                  available_from: selectedDate
+                                }));
+                              }
+                            }}
+                            disabled={(date) => {
+                              // Disable dates after lease_ends if it's already selected
+                              if (takeoverForm.lease_ends) {
+                                const leaseEndsDate = new Date(takeoverForm.lease_ends);
+                                return date > leaseEndsDate;
+                              }
+                              return false;
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                       {takeoverForm.available_from && (
                         <div className="mt-2">
                           {(() => {
                             const availableDate = new Date(takeoverForm.available_from);
                             const today = new Date();
                             const daysUntilAvailable = Math.ceil((availableDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            
+                            // Check if available_from is after lease_ends (invalid)
+                            if (takeoverForm.lease_ends) {
+                              const leaseEndsDate = new Date(takeoverForm.lease_ends);
+                              if (availableDate > leaseEndsDate) {
+                                return (
+                                  <p className="text-xs text-destructive">
+                                    Available From must be before Lease Ends date
+                                  </p>
+                                );
+                              }
+                            }
                             
                             if (daysUntilAvailable < 0) {
                               return (
@@ -726,21 +823,84 @@ const CreatePost = () => {
                           })()}
                         </div>
                       )}
-                    </div>
-                    <div>
-                      <Label htmlFor="lease-end">Lease Ends</Label>
-                      <Input 
-                        id="lease-end" 
-                        type="date"
-                        value={takeoverForm.lease_ends}
-                        onChange={(e) => setTakeoverForm(prev => ({ ...prev, lease_ends: e.target.value }))}
-                      />
+                  </div>
+                  <div>
+                    <Label htmlFor="lease-end">Lease Ends</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={`w-full justify-start text-left font-normal ${!takeoverForm.lease_ends ? 'text-muted-foreground' : ''}`}
+                            id="lease-end"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {takeoverForm.lease_ends ? (
+                              format(new Date(takeoverForm.lease_ends), "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={takeoverForm.lease_ends ? new Date(takeoverForm.lease_ends) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                const selectedDate = format(date, 'yyyy-MM-dd');
+                                const selectedDateObj = new Date(selectedDate);
+                                
+                                // Check if available_from is already selected and if this date is before it
+                                if (takeoverForm.available_from) {
+                                  const availableFromDate = new Date(takeoverForm.available_from);
+                                  if (selectedDateObj < availableFromDate) {
+                                    toast.error('Lease Ends date must be after Available From date');
+                                    return;
+                                  }
+                                }
+                                
+                                setTakeoverForm(prev => ({ 
+                                  ...prev, 
+                                  lease_ends: selectedDate
+                                }));
+                              }
+                            }}
+                            disabled={(date) => {
+                              // Disable dates before available_from if it's already selected
+                              if (takeoverForm.available_from) {
+                                const availableFromDate = new Date(takeoverForm.available_from);
+                                return date < availableFromDate;
+                              }
+                              return false;
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                       {takeoverForm.lease_ends && takeoverForm.available_from && (
                         <div className="mt-2">
                           {(() => {
                             const availableDate = new Date(takeoverForm.available_from);
                             const endDate = new Date(takeoverForm.lease_ends);
                             const leaseDuration = Math.ceil((endDate.getTime() - availableDate.getTime()) / (1000 * 60 * 60 * 24 * 30)); // months
+                            
+                            // Check if lease_ends is before available_from (invalid)
+                            if (endDate < availableDate) {
+                              return (
+                                <p className="text-xs text-destructive">
+                                  Lease Ends must be after Available From date
+                                </p>
+                              );
+                            }
+                            
+                            // Show red text for 0 month lease
+                            if (leaseDuration <= 0) {
+                              return (
+                                <Badge variant="destructive" className="text-xs">
+                                  {leaseDuration} month lease - Please pick a date after Available From
+                                </Badge>
+                              );
+                            }
                             
                             return (
                               <Badge variant="outline" className="text-xs">
@@ -750,46 +910,53 @@ const CreatePost = () => {
                           })()}
                         </div>
                       )}
-                    </div>
+                      {takeoverForm.lease_ends && !takeoverForm.available_from && (
+                        <div className="mt-2">
+                          <p className="text-xs text-muted-foreground">
+                            Available From date should be before this date
+                          </p>
+                        </div>
+                      )}
                   </div>
+                </div>
 
-                  <div>
-                    <Label htmlFor="takeover-reason">Reason for Takeover</Label>
+                <div>
+                  <Label htmlFor="takeover-reason">Reason for Takeover</Label>
                     <Select 
                       value={takeoverForm.takeover_reason}
                       onValueChange={(value) => setTakeoverForm(prev => ({ ...prev, takeover_reason: value }))}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Why are you leaving?" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="abroad">Studying abroad</SelectItem>
-                        <SelectItem value="graduation">Graduating</SelectItem>
-                        <SelectItem value="moving">Moving cities</SelectItem>
-                        <SelectItem value="financial">Financial reasons</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Why are you leaving?" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="abroad">Studying abroad</SelectItem>
+                      <SelectItem value="graduation">Graduating</SelectItem>
+                      <SelectItem value="moving">Moving cities</SelectItem>
+                      <SelectItem value="financial">Financial reasons</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                  <div>
-                    <Label htmlFor="takeover-description">Description</Label>
-                    <Textarea 
-                      id="takeover-description" 
-                      placeholder="Describe the place, why you're leaving, what's included, and any important details..."
-                      rows={4}
+                <div>
+                  <Label htmlFor="takeover-description">Description</Label>
+                  <Textarea 
+                    id="takeover-description" 
+                    placeholder="Describe the place, why you're leaving, what's included, and any important details..."
+                    rows={4}
                       value={takeoverForm.description}
                       onChange={(e) => setTakeoverForm(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
+                  />
+                </div>
 
-                  {/* Photos */}
-                  <div>
-                    <Label>Photos of your place</Label>
-                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                      <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
+                {/* Photos */}
+                <div>
+                  <Label>Photos of your place</Label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                    <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
                       <p className="text-muted-foreground mb-2">Click to upload photos</p>
-                      <p className="text-sm text-muted-foreground">PNG, JPG up to 10MB (max 10 photos)</p>
+                    <p className="text-sm text-muted-foreground">PNG, JPG up to 10MB (max 10 photos)</p>
                       <Button 
                         type="button" 
                         variant="outline" 
@@ -831,9 +998,9 @@ const CreatePost = () => {
                             </div>
                           ))}
                         </div>
-                      </div>
-                    )}
                   </div>
+                    )}
+                </div>
 
                   <Button 
                     type="submit" 
@@ -842,7 +1009,7 @@ const CreatePost = () => {
                     disabled={isUploading || createLeaseTakeoverPost.isPending}
                   >
                     {isUploading || createLeaseTakeoverPost.isPending ? 'Creating Post...' : 'Post Lease Takeover'}
-                  </Button>
+                </Button>
                 </form>
               </CardContent>
             </Card>

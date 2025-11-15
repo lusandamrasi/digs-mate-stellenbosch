@@ -553,12 +553,7 @@ export const chatsApi = {
   async getChats(userId: string): Promise<Chat[]> {
     const { data, error } = await supabase
       .from('chats')
-      .select(`
-        *,
-        user1:users!chats_user1_id_fkey(full_name, profile_photo_url),
-        user2:users!chats_user2_id_fkey(full_name, profile_photo_url),
-        messages:messages(created_at)
-      `)
+      .select('*')
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
       .order('updated_at', { ascending: false })
     
@@ -569,15 +564,14 @@ export const chatsApi = {
   async getChat(id: string): Promise<Chat | null> {
     const { data, error } = await supabase
       .from('chats')
-      .select(`
-        *,
-        user1:users!chats_user1_id_fkey(full_name, profile_photo_url),
-        user2:users!chats_user2_id_fkey(full_name, profile_photo_url)
-      `)
+      .select('*')
       .eq('id', id)
       .single()
     
-    if (error) throw error
+    if (error) {
+      if (error.code === 'PGRST116') return null
+      throw error
+    }
     return data
   },
 
@@ -592,22 +586,38 @@ export const chatsApi = {
     return data
   },
 
-  async getOrCreateChat(user1Id: string, user2Id: string, listingId?: string, postId?: string): Promise<Chat> {
-    // Check if chat already exists
-    const { data: existingChat } = await supabase
+  async getOrCreateChat(user1Id: string, user2Id: string, listingId?: string | null, postId?: string | null): Promise<Chat> {
+    // Check if chat already exists between these two users (regardless of post/listing)
+    const { data: existingChats, error: queryError } = await supabase
       .from('chats')
       .select('*')
       .or(`and(user1_id.eq.${user1Id},user2_id.eq.${user2Id}),and(user1_id.eq.${user2Id},user2_id.eq.${user1Id})`)
-      .eq('listing_id', listingId || null)
-      .eq('post_id', postId || null)
-      .single()
     
-    if (existingChat) return existingChat
+    if (queryError) throw queryError
     
-    // Create new chat
+    // Return first existing chat if found
+    if (existingChats && existingChats.length > 0) {
+      // If post/listing provided, update it if chat doesn't have one
+      const chat = existingChats[0]
+      if ((postId && !chat.post_id) || (listingId && !chat.listing_id)) {
+        await supabase
+          .from('chats')
+          .update({
+            post_id: postId || chat.post_id,
+            listing_id: listingId || chat.listing_id,
+          })
+          .eq('id', chat.id)
+        chat.post_id = postId || chat.post_id
+        chat.listing_id = listingId || chat.listing_id
+      }
+      return chat
+    }
+    
+    // Create new chat (normalize user IDs - always put smaller ID first)
+    const sortedIds = [user1Id, user2Id].sort()
     return this.createChat({
-      user1_id: user1Id,
-      user2_id: user2Id,
+      user1_id: sortedIds[0],
+      user2_id: sortedIds[1],
       listing_id: listingId || null,
       post_id: postId || null
     })
@@ -619,10 +629,7 @@ export const messagesApi = {
   async getMessages(chatId: string): Promise<Message[]> {
     const { data, error } = await supabase
       .from('messages')
-      .select(`
-        *,
-        sender:users!messages_sender_id_fkey(full_name, profile_photo_url)
-      `)
+      .select('*')
       .eq('chat_id', chatId)
       .order('created_at', { ascending: true })
     
@@ -634,10 +641,7 @@ export const messagesApi = {
     const { data, error } = await supabase
       .from('messages')
       .insert(message)
-      .select(`
-        *,
-        sender:users!messages_sender_id_fkey(full_name, profile_photo_url)
-      `)
+      .select()
       .single()
     
     if (error) throw error
@@ -658,6 +662,28 @@ export const messagesApi = {
       .eq('id', messageId)
     
     if (error) throw error
+  },
+
+  async markMessagesAsRead(chatId: string, userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('messages')
+      .update({ read: true })
+      .eq('chat_id', chatId)
+      .eq('receiver_id', userId)
+      .eq('read', false)
+    
+    if (error) throw error
+  },
+
+  async getUnreadCount(userId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('receiver_id', userId)
+      .eq('read', false)
+    
+    if (error) throw error
+    return count || 0
   }
 }
 

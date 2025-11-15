@@ -1,156 +1,107 @@
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Search, MessageCircle, Send } from "lucide-react";
+import { ConversationsList } from "@/components/ConversationsList";
+import { ChatWindow } from "@/components/ChatWindow";
+import { chatsApi } from "@/lib/api";
+import type { Database } from "@/lib/supabase";
 
-// Mock conversations
-const conversations = [
-];
+type Chat = Database['public']['Tables']['chats']['Row'];
 
 const Messages = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showChat, setShowChat] = useState(false);
+
+  // Handle chat selection from URL state or props
+  useEffect(() => {
+    const state = location.state as { selectedChatId?: string } | null;
+    if (state?.selectedChatId) {
+      loadChat(state.selectedChatId);
+      // Clear state after reading
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
+
+  // Handle responsive layout
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setShowChat(true);
+      } else if (!selectedChat) {
+        setShowChat(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, [selectedChat]);
+
+  const loadChat = async (chatId: string) => {
+    try {
+      const chat = await chatsApi.getChat(chatId);
+      if (chat) {
+        setSelectedChat(chat);
+        if (isMobile) {
+          setShowChat(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading chat:', error);
+    }
+  };
+
+  const handleSelectChat = (chat: Chat) => {
+    setSelectedChat(chat);
+    if (isMobile) {
+      setShowChat(true);
+    }
+  };
+
+  const handleBack = () => {
+    if (isMobile) {
+      setShowChat(false);
+      setSelectedChat(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
       
       {/* Page Header */}
-      <div className="bg-gradient-primary py-8">
+      <div className="bg-gradient-subtle py-6 border-b border-border">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold text-primary-foreground mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             Messages
           </h1>
-          <p className="text-primary-foreground/90">
-           Keep in touch with future roommates or anyone interested in your place!
+          <p className="text-muted-foreground">
+            Keep in touch with future roommates or anyone interested in your place!
           </p>
         </div>
       </div>
 
+      {/* Messages Layout */}
       <div className="container mx-auto px-4 py-6">
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-          <Input 
-            placeholder="Search conversations..." 
-            className="pl-10"
-          />
-        </div>
-
-        {/* Empty State or Conversations List */}
-        {conversations.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <MessageCircle size={64} className="mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">No messages yet</h3>
-              <p className="text-muted-foreground mb-6">
-                Start browsing properties and connect with roommates
-              </p>
-              <Button className="bg-blue-800 hover:opacity-90 transition-smooth">
-                Browse Properties
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {conversations.map((conversation) => (
-              <Card key={conversation.id} className="cursor-pointer hover:bg-muted/50 transition-smooth">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <Avatar>
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {conversation.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start mb-1">
-                        <h3 className="font-semibold text-foreground truncate">
-                          {conversation.name}
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {conversation.time}
-                          </span>
-                          {conversation.unread > 0 && (
-                            <Badge variant="destructive" className="min-w-[20px] h-5 text-xs">
-                              {conversation.unread}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <p className="text-sm text-muted-foreground truncate mb-2">
-                        {conversation.lastMessage}
-                      </p>
-                      
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted-foreground truncate mr-2">
-                          {conversation.listingTitle}
-                        </span>
-                        <span className="text-primary font-medium">
-                          {conversation.listingPrice}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ height: 'calc(100vh - 280px)', minHeight: 0 }}>
+          {/* Conversations List */}
+          <div className={`${isMobile && showChat ? 'hidden' : 'block'} md:block h-full min-h-0`}>
+            <ConversationsList
+              selectedChatId={selectedChat?.id || null}
+              onSelectChat={handleSelectChat}
+            />
           </div>
-        )}
 
-        {/* Chat Interface (when a conversation is selected) */}
-        <div className="hidden">
-          <Card className="mt-6">
-            <CardContent className="p-0">
-              {/* Chat Header */}
-              <div className="p-4 border-b border-border">
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      SM
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Sarah M.</h3>
-                    <p className="text-sm text-muted-foreground">Modern Apartment - Stellenbosch Central</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Chat Messages */}
-              <div className="h-96 p-4 overflow-y-auto">
-                <div className="space-y-4">
-                  {/* Received message */}
-                  <div className="flex justify-start">
-                    <div className="bg-muted p-3 rounded-lg max-w-xs">
-                      <p className="text-sm">Hi! Is the room still available?</p>
-                      <span className="text-xs text-muted-foreground">2:30 PM</span>
-                    </div>
-                  </div>
-                  
-                  {/* Sent message */}
-                  <div className="flex justify-end">
-                    <div className="bg-primary text-primary-foreground p-3 rounded-lg max-w-xs">
-                      <p className="text-sm">Yes, it's still available! Would you like to schedule a viewing?</p>
-                      <span className="text-xs text-primary-foreground/70">2:32 PM</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Message Input */}
-              <div className="p-4 border-t border-border">
-                <div className="flex gap-2">
-                  <Input placeholder="Type a message..." className="flex-1" />
-                  <Button size="icon" className="bg-gradient-accent hover:opacity-90 transition-smooth">
-                    <Send size={16} />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Chat Window */}
+          <div className={`${isMobile && !showChat ? 'hidden' : 'block'} md:block h-full min-h-0`}>
+            <ChatWindow chat={selectedChat} onBack={handleBack} />
+          </div>
         </div>
       </div>
     </div>

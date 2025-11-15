@@ -11,14 +11,11 @@ import {
 import { Menu, User, LogOut, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/providers/BetterAuthProvider";
-import { useLocation } from "@/contexts/LocationContext";
-import { SOUTH_AFRICAN_CITIES } from "@/components/LocationFilter";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { selectedCity, setIsFilterOpen } = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -33,9 +30,6 @@ const Header = () => {
     }
   };
 
-  // Get the city label from the selected city value
-  const cityLabel = SOUTH_AFRICAN_CITIES.find(c => c.value === selectedCity)?.label || "All Cities";
-
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="container mx-auto px-4 py-3">
@@ -48,11 +42,10 @@ const Header = () => {
             <h1 className="text-xl font-bold text-foreground">FlatMate</h1>
             <Badge 
               variant="secondary" 
-              className="hidden sm:inline-flex gap-1 cursor-pointer hover:bg-secondary/80 transition-colors"
-              onClick={() => setIsFilterOpen(true)}
+              className="hidden sm:inline-flex gap-1"
             >
               <MapPin size={14} />
-              {cityLabel}
+              Stellenbosch
             </Badge>
           </div>
 

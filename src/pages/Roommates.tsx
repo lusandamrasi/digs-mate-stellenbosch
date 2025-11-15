@@ -9,14 +9,24 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Calendar, Users, MessageCircle, Filter, Heart, Plus, Edit, Trash2, Navigation } from "lucide-react";
+import { MapPin, Calendar, Users, MessageCircle, Filter, Heart, Plus, Edit, Trash2, Home } from "lucide-react";
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
-import { useRoommatePosts, useDeleteRoommatePost, useLeaseTakeoverPosts, useDeleteLeaseTakeoverPost } from "@/hooks/useQueries";
+import { useRoommatePosts, useDeleteRoommatePost, useLeaseTakeoverPosts, useDeleteLeaseTakeoverPost, useGetOrCreateChat } from "@/hooks/useQueries";
 import { useAuth } from "@/providers/BetterAuthProvider";
-import { useLocation } from "@/contexts/LocationContext";
 import ImageGallery from "@/components/ImageGallery";
 import { toast } from "sonner";
+import { chatsApi } from "@/lib/api";
 import { 
   Select,
   SelectContent,
@@ -26,10 +36,6 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import CityChips from "@/components/CityChips";
-import LocationDisplay from "@/components/LocationDisplay";
-import LocationFilter from "@/components/LocationFilter";
-import EmptyStateCity from "@/components/EmptyStateCity";
 
 const Roommates = () => {
   const navigate = useNavigate();
@@ -38,6 +44,7 @@ const Roommates = () => {
   const { data: leaseTakeoverPosts = [], isLoading: isLoadingTakeovers } = useLeaseTakeoverPosts();
   const deleteRoommatePost = useDeleteRoommatePost();
   const deleteLeaseTakeoverPost = useDeleteLeaseTakeoverPost();
+  const getOrCreateChat = useGetOrCreateChat();
   
   // Combine both types of posts
   const allPosts = [
@@ -48,9 +55,55 @@ const Roommates = () => {
   const isLoading = isLoadingRoommates || isLoadingTakeovers;
   const [activeFilter, setActiveFilter] = useState('all');
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
+  const [locationDialog, setLocationDialog] = useState<{
+    open: boolean;
+    locationName: string;
+    latitude: number | null;
+    longitude: number | null;
+    placeId: string | null;
+  }>({
+    open: false,
+    locationName: '',
+    latitude: null,
+    longitude: null,
+    placeId: null,
+  });
   
-  // Use location context instead of local state
-  const { selectedCity, setSelectedCity, radius, isFilterOpen, setIsFilterOpen } = useLocation();
+
+  // Function to open Google Maps
+  const openGoogleMaps = () => {
+    const { latitude, longitude, placeId, locationName } = locationDialog;
+    
+    let mapsUrl = '';
+    if (latitude && longitude) {
+      // Use coordinates if available (most accurate)
+      mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+    } else if (placeId) {
+      // Use place ID if coordinates not available
+      mapsUrl = `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+    } else if (locationName) {
+      // Fallback to location name
+      mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationName)}`;
+    }
+    
+    if (mapsUrl) {
+      window.open(mapsUrl, '_blank');
+    }
+    setLocationDialog({ open: false, locationName: '', latitude: null, longitude: null, placeId: null });
+  };
+
+  // Function to handle location click
+  const handleLocationClick = (location: any) => {
+    if (!location?.name) return;
+    
+    setLocationDialog({
+      open: true,
+      locationName: location.name || '',
+      latitude: location.latitude || null,
+      longitude: location.longitude || null,
+      placeId: location.place_id || null,
+    });
+  };
   
   // Advanced filter states
   const [roommateCountFilter, setRoommateCountFilter] = useState<string>('all');
@@ -97,6 +150,26 @@ const Roommates = () => {
     toast.info('Edit functionality coming soon!');
   };
 
+  const handleMessageUser = async (postUserId: string, postId: string, postType: 'roommate_needed' | 'lease_takeover') => {
+    if (!user?.id) {
+      toast.error('Please log in to send messages');
+      return;
+    }
+
+    if (postUserId === user.id) {
+      toast.info("You can't message yourself");
+      return;
+    }
+
+    try {
+      const chat = await chatsApi.getOrCreateChat(user.id, postUserId, null, postId);
+      navigate('/messages', { state: { selectedChatId: chat.id } });
+    } catch (error: any) {
+      console.error('Error creating/getting chat:', error);
+      toast.error(error.message || 'Failed to start conversation');
+    }
+  };
+
   const handlePreferenceToggle = (preference: string) => {
     setSelectedPreferences(prev => 
       prev.includes(preference)
@@ -121,9 +194,7 @@ const Roommates = () => {
     
     // Property capacity filter (only for roommate posts)
     if (roommateCountFilter !== 'all' && post.post_type === 'roommate_needed') {
-      const current = post.current_roommates || 0;
-      const needed = post.roommates_needed || 0;
-      const totalCapacity = current + needed;
+      const totalCapacity = post.listing_capacity || 0;
       const filterCapacity = parseInt(roommateCountFilter);
       
       if (filterCapacity === 4) {
@@ -161,29 +232,15 @@ const Roommates = () => {
         </div>
       </div>
 
-      {/* Location Filter Section */}
+      {/* Location Section */}
       <section className="bg-card border-b border-border">
-        <div className="container mx-auto px-4 py-4 space-y-4">
-          {/* City Chips */}
-          <CityChips 
-            selectedCity={selectedCity}
-            onCitySelect={setSelectedCity}
-          />
-          
-          {/* Location Display */}
-          <LocationDisplay 
-            selectedCity={selectedCity}
-            radius={radius}
-            onClick={() => setIsFilterOpen(true)}
-          />
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center gap-2">
+            <MapPin size={18} className="text-primary" />
+            <span className="text-lg font-semibold text-foreground">Stellenbosch</span>
+          </div>
         </div>
       </section>
-      
-      {/* Location Filter Modal */}
-      <LocationFilter 
-        open={isFilterOpen}
-        onOpenChange={setIsFilterOpen}
-      />
 
       {/* Filters */}
       <div className="bg-card border-b border-border py-4">
@@ -414,31 +471,54 @@ const Roommates = () => {
 
                     <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-3">
                       {post.location?.name && (
-                        <div className="flex items-center gap-1">
-                          <MapPin size={14} />
+                        <div 
+                          className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
+                          onClick={() => handleLocationClick(post.location)}
+                        >
+                        <MapPin size={14} />
                           {post.location.name}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1 text-primary">
-                        <Navigation size={14} />
-                        {(Math.random() * 8 + 0.5).toFixed(1)}km away
                       </div>
-                      {post.post_type === 'roommate_needed' && (
-                        <div className="flex items-center gap-1">
-                          <Users size={14} />
-                          {post.current_roommates || 1}/{post.current_roommates + post.roommates_needed}
+                      )}
+                      {('accommodation_type' in post && post.accommodation_type) && (
+                      <div className="flex items-center gap-1">
+                          <Home size={14} />
+                          {post.accommodation_type.charAt(0).toUpperCase() + post.accommodation_type.slice(1)}
+                      </div>
+                      )}
+                      
+                      {post.post_type === 'roommate_needed' && post.listing_capacity && (
+                      <div className="flex items-center gap-1">
+                        <Users size={14} />
+                          {(() => {
+                            const capacity = post.listing_capacity || 0;
+                            const needed = post.roommates_needed || 0;
+                            const current = capacity - needed;
+                            return `${current}/${capacity}`;
+                          })()}
                         </div>
                       )}
                       {post.post_type === 'lease_takeover' && post.available_from && (
                         <div className="flex items-center gap-1">
                           <Calendar size={14} />
                           Available {new Date(post.available_from).toLocaleDateString()}
-                        </div>
+                      </div>
                       )}
                     </div>
 
+                    {/* Description */}
                     {post.description && (
-                      <p className="text-muted-foreground mb-4">{post.description}</p>
+                      <p className="text-muted-foreground mb-3 line-clamp-2">{post.description}</p>
+                    )}
+
+                    {/* Preferences - only for roommate posts */}
+                    {post.post_type === 'roommate_needed' && 'preferences' in post && post.preferences && post.preferences.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                      {post.preferences.map((pref, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                          {pref}
+                        </Badge>
+                      ))}
+                    </div>
                     )}
 
                     <div className="flex justify-between items-center">
@@ -468,10 +548,16 @@ const Roommates = () => {
                             </Button>
                           </>
                         )}
-                        <Button size="sm" className="bg-blue-800 hover:opacity-90 transition-smooth">
-                          <MessageCircle size={16} className="mr-2" />
-                          Message
-                        </Button>
+                        {user?.id !== post.user_id && (
+                          <Button 
+                            size="sm" 
+                            className="bg-primary hover:opacity-90 transition-smooth"
+                            onClick={() => handleMessageUser(post.user_id, post.id, post.post_type)}
+                          >
+                            <MessageCircle size={16} className="mr-2" />
+                            Message
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -489,6 +575,24 @@ const Roommates = () => {
           </Button>
         </div>
       </div>
+
+      {/* Location Dialog */}
+      <AlertDialog open={locationDialog.open} onOpenChange={(open) => setLocationDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Open in Google Maps?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Would you like to open "{locationDialog.locationName}" in Google Maps?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={openGoogleMaps}>
+              Open Maps
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
